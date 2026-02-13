@@ -136,9 +136,3 @@ class ProjectDependencyAnalyzer:
                 results[file_path] = {'error': str(e)}
         
         return results
-
-    def find_circular_dependencies(self) -> List[List[str]]:
-        """Find circular dependencies (simplified detection)."""
-        # This is a simplified version - would need more sophisticated analysis
-        # for real circular dependency detection
-        return []

@@ -7,6 +7,12 @@ from code_rescue.complexity import ComplexityAnalyzer
 from code_rescue.dependencies import DependencyAnalyzer, ProjectDependencyAnalyzer
 from code_rescue.smells import CodeSmellDetector
 
+# Default thresholds for analysis
+DEFAULT_LONG_FUNCTION_THRESHOLD = 50
+DEFAULT_LARGE_CLASS_THRESHOLD = 200
+DEFAULT_MANY_PARAMS_THRESHOLD = 5
+DEFAULT_DEEP_NESTING_THRESHOLD = 4
+
 
 @click.group()
 @click.version_option(version='0.1.0')
@@ -58,7 +64,7 @@ def _print_complexity_report(report):
     # Long functions
     long_funcs = report['long_functions']
     if long_funcs and 'error' not in long_funcs[0]:
-        click.echo(f"\n📏 Long Functions (>{50} lines):")
+        click.echo(f"\n📏 Long Functions (>{DEFAULT_LONG_FUNCTION_THRESHOLD} lines):")
         for func in long_funcs:
             click.echo(f"  ⚠️  {func['name']} (line {func['line']}): {func['length']} lines")
     
