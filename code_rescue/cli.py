@@ -200,6 +200,7 @@ def analyze(file_path, format):
             'file': file_path,
             'complexity': complexity_analyzer.get_full_report(),
             'dependencies': {
+                'file': file_path,
                 'imports': dependency_analyzer.extract_imports(),
                 'counts': dependency_analyzer.count_dependencies(),
                 'unused': dependency_analyzer.find_unused_imports(),
