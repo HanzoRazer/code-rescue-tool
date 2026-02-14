@@ -19,10 +19,24 @@ UPSTREAM_REF = os.environ.get("UPSTREAM_REF", "main").strip() or "main"
 
 UPSTREAM_RAW_BASE = f"https://raw.githubusercontent.com/{OWNER}/{REPO}/{UPSTREAM_REF}"
 
-# (upstream_path, local_path)
-PAIRS = [
+# Optional: also enforce upstream rule registry parity.
+# Default is enabled. Set CHECK_RULE_REGISTRY=0 to skip temporarily.
+CHECK_RULE_REGISTRY = os.environ.get("CHECK_RULE_REGISTRY", "1").strip() not in {"0", "false", "False", "no", "NO"}
+
+BASE_PAIRS = [
     ("schemas/run_result.schema.json", "contracts/run_result.schema.json"),
 ]
+
+RULE_REGISTRY_PAIRS = [
+    # Producer source-of-truth location (expected):
+    #   code-analysis-tool/docs/rule_registry.json
+    ("docs/rule_registry.json", "contracts/rule_registry.json"),
+]
+
+def pairs() -> list[tuple[str, str]]:
+    if CHECK_RULE_REGISTRY:
+        return BASE_PAIRS + RULE_REGISTRY_PAIRS
+    return BASE_PAIRS
 
 def sha256_bytes(b: bytes) -> str:
     return hashlib.sha256(b).hexdigest()
@@ -43,7 +57,7 @@ def main() -> int:
     root = Path(__file__).resolve().parents[1]
     failures: list[str] = []
 
-    for upstream_rel, local_rel in PAIRS:
+    for upstream_rel, local_rel in pairs():
         upstream_url = f"{UPSTREAM_RAW_BASE}/{upstream_rel}"
         local_path = root / local_rel
 
@@ -54,12 +68,20 @@ def main() -> int:
         try:
             upstream = fetch(upstream_url)
         except Exception as e:
+            extra = ""
+            if upstream_rel == "docs/rule_registry.json":
+                extra = (
+                    "\nNote: rule registry parity is enabled.\n"
+                    "  - Ensure upstream has docs/rule_registry.json\n"
+                    "  - Or temporarily disable with CHECK_RULE_REGISTRY=0\n"
+                )
             failures.append(
                 f"Failed to fetch upstream contract\n"
                 f"  upstream_ref: {UPSTREAM_REF}\n"
                 f"  url: {upstream_url}\n"
                 f"  error: {e!r}\n"
                 f"Fix: set UPSTREAM_REF to a valid branch/tag/sha."
+                f"{extra}"
             )
             continue
 
@@ -81,7 +103,8 @@ def main() -> int:
         print("\n\n".join(failures), file=sys.stderr)
         return 1
 
-    print(f"OK: contracts match upstream ({OWNER}/{REPO}@{UPSTREAM_REF}).")
+    rr = "enabled" if CHECK_RULE_REGISTRY else "disabled"
+    print(f"OK: contracts match upstream ({OWNER}/{REPO}@{UPSTREAM_REF}). rule_registry_check={rr}")
     return 0
 
 if __name__ == "__main__":

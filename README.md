@@ -104,6 +104,24 @@ UPSTREAM_REF=v1.0.0 ./scripts/sync_contracts.sh
 
 Commit the updated schema and push.
 
+### Rule Registry Parity
+
+In addition to the run result schema, CI also checks that the vendored rule
+registry matches upstream:
+
+```
+contracts/rule_registry.json
+```
+
+This ensures that `code-rescue-tool` only claims to handle rules that
+`code-analysis-tool` actually produces.
+
+To temporarily skip rule registry parity (e.g., during upstream development):
+
+```bash
+CHECK_RULE_REGISTRY=0 python ci/check_upstream_contracts.py
+```
+
 ## Development
 
 ```bash

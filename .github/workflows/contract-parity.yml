@@ -21,4 +21,6 @@ jobs:
           # Pin to a branch, tag, or commit SHA without editing code.
           # Example: v1.0.0, main, fbf34e1
           UPSTREAM_REF: main
+          # Default: enabled. Set to 0 to skip rule registry parity temporarily.
+          CHECK_RULE_REGISTRY: "1"
         run: python ci/check_upstream_contracts.py
