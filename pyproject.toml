@@ -34,6 +34,9 @@ dev = [
 [project.scripts]
 code-rescue = "code_rescue.__main__:main"
 
+[tool.hatch.metadata]
+allow-direct-references = true
+
 [tool.hatch.build.targets.wheel]
 packages = ["src/code_rescue"]
 
