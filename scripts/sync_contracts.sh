@@ -1,19 +1,26 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Sync contracts from upstream code-analysis-tool repo
-# Usage: ./scripts/sync_contracts.sh [ref]
-#   ref: branch or tag (default: main)
+# Usage:
+#   UPSTREAM_REF=v1.0.0 ./scripts/sync_contracts.sh
+#   ./scripts/sync_contracts.sh   (defaults to main)
 
-REF="${1:-main}"
-BASE="https://raw.githubusercontent.com/HanzoRazer/code-analysis-tool/${REF}"
+OWNER="HanzoRazer"
+REPO="code-analysis-tool"
+UPSTREAM_REF="${UPSTREAM_REF:-main}"
 
-echo "Syncing contracts from upstream ref: ${REF}"
+BASE="https://raw.githubusercontent.com/${OWNER}/${REPO}/${UPSTREAM_REF}"
 
-curl -fsSL "$BASE/schemas/run_result.schema.json" -o contracts/run_result.schema.json
-echo "  [OK] contracts/run_result.schema.json"
+echo "Syncing contracts from ${OWNER}/${REPO}@${UPSTREAM_REF}..."
+
+curl -fsSL \
+  "${BASE}/schemas/run_result.schema.json" \
+  -o contracts/run_result.schema.json
 
 echo ""
-echo "Synced. Review diff, commit, push:"
-echo "  git diff contracts/"
-echo "  git add contracts/ && git commit -m 'chore(contracts): sync from upstream'"
+echo "✔ Synced contracts/run_result.schema.json"
+echo ""
+echo "Next steps:"
+echo "  1. git diff contracts/run_result.schema.json"
+echo "  2. git commit -am \"chore(contracts): sync from ${OWNER}/${REPO}@${UPSTREAM_REF}\""
+echo "  3. git push"

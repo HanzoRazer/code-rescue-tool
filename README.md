@@ -72,6 +72,38 @@ code-rescue fix ./rescue_plan.json --apply --backup
 - Consumes: `run_result_v1` from code-analysis-tool
 - Produces: `rescue_plan_v1`
 
+## Contract Parity with code-analysis-tool
+
+`code-rescue-tool` vendors the upstream contract schema:
+
+```
+contracts/run_result.schema.json
+```
+
+This file **must remain byte-identical** to the version in:
+
+```
+https://github.com/HanzoRazer/code-analysis-tool
+```
+
+CI enforces this automatically via `ci/check_upstream_contracts.py`.
+
+If CI fails with a contract mismatch:
+
+### Sync manually
+
+```bash
+UPSTREAM_REF=main ./scripts/sync_contracts.sh
+```
+
+Or pin to a release tag:
+
+```bash
+UPSTREAM_REF=v1.0.0 ./scripts/sync_contracts.sh
+```
+
+Commit the updated schema and push.
+
 ## Development
 
 ```bash
