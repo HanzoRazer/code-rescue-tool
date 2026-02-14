@@ -17,7 +17,8 @@ jobs:
         with:
           python-version: "3.13"
       - name: Check upstream contract parity
+        env:
+          # Pin to a branch, tag, or commit SHA without editing code.
+          # Example: v1.0.0, main, fbf34e1
+          UPSTREAM_REF: main
         run: python ci/check_upstream_contracts.py
-        # Optional: pin to a tag instead of main
-        # env:
-        #   UPSTREAM_REF: v1.0.0
