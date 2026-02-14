@@ -1,0 +1,23 @@
+name: contract-parity
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  schedule:
+    # Daily check to catch upstream changes
+    - cron: '0 6 * * *'
+
+jobs:
+  contract-parity:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: Check upstream contract parity
+        run: python ci/check_upstream_contracts.py
+        # Optional: pin to a tag instead of main
+        # env:
+        #   UPSTREAM_REF: v1.0.0
