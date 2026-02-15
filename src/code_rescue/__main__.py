@@ -92,14 +92,18 @@ def main() -> int:
 def cmd_plan(args: argparse.Namespace) -> int:
     """Generate a rescue plan from analysis results."""
     # Load input
-    if args.input == "-":
-        data = json.load(sys.stdin)
-    else:
-        path = Path(args.input)
-        if not path.exists():
-            print(f"Error: file not found: {path}", file=sys.stderr)
-            return 2
-        data = json.loads(path.read_text())
+    try:
+        if args.input == "-":
+            data = json.load(sys.stdin)
+        else:
+            path = Path(args.input)
+            if not path.exists():
+                print(f"Error: file not found: {path}", file=sys.stderr)
+                return 2
+            data = json.loads(path.read_text())
+    except json.JSONDecodeError as e:
+        print(f"Error: invalid JSON: {e}", file=sys.stderr)
+        return 2
 
     # Parse and validate
     run_result = load_run_result(data)
