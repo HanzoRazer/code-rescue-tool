@@ -19,8 +19,12 @@ from code_rescue.fixers.base import AbstractFixer
 CONTRACTS_DIR = Path(__file__).resolve().parent.parent / "contracts"
 RULE_REGISTRY_PATH = CONTRACTS_DIR / "rule_registry.json"
 
-# Pattern: 2-4 uppercase letters, underscore, uppercase word, underscore, 3 digits
-RULE_ID_PATTERN = re.compile(r"^[A-Z]{2,4}_[A-Z][A-Z0-9_]*_[0-9]{3}$")
+# Patterns accepted:
+#   Underscore convention: 2-4 uppercase letters, underscore, uppercase word, underscore, 3 digits
+#   Hyphen convention:     VUE-WORD-NNN (Vue fixer rules)
+RULE_ID_PATTERN = re.compile(
+    r"^(?:[A-Z]{2,4}_[A-Z][A-Z0-9_]*_[0-9]{3}|[A-Z]{2,4}(?:-[A-Z][A-Z0-9]*)*-[0-9]{3})$"
+)
 
 
 def _load_registry() -> dict:
@@ -29,13 +33,27 @@ def _load_registry() -> dict:
 
 
 def _discover_fixer_supported_rules() -> set[str]:
-    """Discover all rule_ids supported by fixers."""
-    from code_rescue.fixers import MutableDefaultFixer
+    """Discover all rule_ids supported by fixers via pkgutil discovery."""
+    import inspect
+    import pkgutil
+    from types import ModuleType
 
-    fixers = [MutableDefaultFixer()]
+    import code_rescue.fixers as fixers_pkg
+    from code_rescue.fixers.base import AbstractFixer
+
     rules: set[str] = set()
-    for fixer in fixers:
-        rules.update(fixer.supported_rules)
+    infos = sorted(pkgutil.iter_modules(fixers_pkg.__path__), key=lambda m: m.name)
+    for info in infos:
+        mod = __import__(f"{fixers_pkg.__name__}.{info.name}", fromlist=["_"])
+        for _, obj in inspect.getmembers(mod, inspect.isclass):
+            if (
+                obj is not AbstractFixer
+                and issubclass(obj, AbstractFixer)
+                and not inspect.isabstract(obj)
+                and obj.__module__ == mod.__name__
+            ):
+                instance = obj()
+                rules.update(instance.supported_rules)
     return rules
 
 
@@ -116,10 +134,10 @@ class TestFixerRegistrySync:
         registry = _load_registry()
         rule_ids = registry["supported_rule_ids"]
 
-        prefixes = {rid.split("_")[0] for rid in rule_ids}
+        prefixes = {rid.split("_")[0].split("-")[0] for rid in rule_ids}
 
-        # code-analysis-tool emits these categories
-        expected_prefixes = {"DC", "GST", "SEC"}
+        # code-analysis-tool emits these categories, plus VUE from rescue-tool
+        expected_prefixes = {"DC", "EXC", "GST", "SEC", "VUE"}
         found = prefixes & expected_prefixes
 
         assert found, (

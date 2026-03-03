@@ -1,0 +1,30 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+*.egg
+dist/
+build/
+.eggs/
+
+# Virtual environments
+.venv/
+venv/
+
+# IDE
+.vscode/
+.idea/
+
+# Vendored tool archives
+bandit-*/
+radon-*/
+skylos-*/
+vulture-*/
+
+# Temp / scratch files
+*.txt
+!requirements*.txt
+
+# OS
+.DS_Store
+Thumbs.db

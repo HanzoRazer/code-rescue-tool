@@ -1,0 +1,11 @@
+{
+  "manifest_version": 1,
+  "signal_logic_version": "signals_v5",
+  "generated_by": "scripts/refresh_golden_manifest.py",
+  "files": {
+    "src/code_audit/contracts/versions.json": "",
+    "tests/fixtures/expected/sample_repo_js_ts_eval.json": "",
+    "tests/fixtures/expected/sample_repo_js_ts_all.json": "",
+    "tests/fixtures/expected/": ""
+  }
+}

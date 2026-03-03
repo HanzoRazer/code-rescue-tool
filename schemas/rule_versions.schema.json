@@ -1,0 +1,27 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Rule Versions (code_audit)",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "generated_by", "signal_logic_version", "rules"],
+  "properties": {
+    "schema_version": { "type": "integer", "minimum": 1 },
+    "generated_by": { "type": "string", "minLength": 1 },
+    "signal_logic_version": { "type": "string", "pattern": "^signals_v\\d+$" },
+    "rules": {
+      "type": "object",
+      "additionalProperties": { "$ref": "#/$defs/rule_version" }
+    }
+  },
+  "$defs": {
+    "rule_version": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["rule_logic_version", "semantic_hash"],
+      "properties": {
+        "rule_logic_version": { "type": "integer", "minimum": 1 },
+        "semantic_hash": { "type": "string", "pattern": "^[a-f0-9]{64}$" }
+      }
+    }
+  }
+}

@@ -102,12 +102,19 @@ class AbstractFixer(ABC):
         if rationale:
             action.rationale = rationale
 
-        # For now, just return the result without actually modifying
-        # Full implementation would apply the fix and generate diff
+        # Apply the replacement if we have one and line info
+        modified = source_code
+        if replacement and action.line_start >= 1:
+            lines = source_code.splitlines(keepends=True)
+            end = min(action.line_end, len(lines))
+            before = "".join(lines[: action.line_start - 1])
+            after = "".join(lines[end:])
+            modified = before + replacement + after
+
         return FixResult(
             status=FixStatus.SUCCESS,
             action=action,
             original_content=source_code,
-            modified_content=None,  # TODO: implement actual modification
-            message="Fix generated (dry-run)",
+            modified_content=modified,
+            message="Fix generated" + (" (dry-run)" if dry_run else ""),
         )

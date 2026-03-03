@@ -1,0 +1,14 @@
+{
+  "manifest_version": 1,
+  "signal_logic_version": "signals_v5",
+  "generated_by": "scripts/refresh_treesitter_manifest.py",
+  "files": {
+    "src/code_audit/analyzers/js_ts_security.py": "e3f9b4115a51a8af70272adeb4852315c6ee46324a351c006a0b92057fba2bea",
+    "src/code_audit/contracts/rule_versions.json": "239bfa4aa059b1a1e9f6a29e63152f97bbb3ffd06fc1edeb887fb4b294905566",
+    "src/code_audit/contracts/rules_registry.json": "68dc5ac91b55be2d77c6935e893dd3b2b9a277e34b4febe952f56858c5fbf2ad",
+    "src/code_audit/contracts/versions.json": "9534f1f4a3c0a1bfc02b4a2ef48c53db8f344f1dd574cd65241dd4349b6755bb",
+    "src/code_audit/data/treesitter/queries/js_ts_security.scm": "ed72af30cff57e09b4b0238b7d80a46c7c3fd95ea5713ed9180e99a8a8d59458",
+    "src/code_audit/parsers/tree_sitter_js.py": "773b3e855fb893bfb8cc3cd11d2e01668f4fcdf0b9d182bb2ccf1cb47523bdca",
+    "src/code_audit/parsers/tree_sitter_loader.py": "f8dc0dfbd8c3d2982e148b2c0f72b0d0f4cfa530bf626d819a3cee1ea208379c"
+  }
+}

@@ -1,0 +1,84 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Release BOM (code_audit)",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["bom_version", "artifacts"],
+  "properties": {
+    "bom_version": { "type": "integer", "minimum": 1 },
+    "artifacts": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["js_ts_surface"],
+      "properties": {
+        "js_ts_surface": { "type": "boolean" },
+        "contract_versions": { "$ref": "#/$defs/contract_versions_artifact" },
+        "rules_registry": { "$ref": "#/$defs/rules_registry_artifact" },
+        "rule_versions": { "$ref": "#/$defs/rule_versions_artifact" },
+        "treesitter_manifest": { "$ref": "#/$defs/treesitter_manifest_artifact" }
+      }
+    }
+  },
+  "$defs": {
+    "sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "signals_version": { "type": "string", "pattern": "^signals_v\\d+$" },
+    "contract_versions_artifact": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "sha256", "schema_version", "signal_logic_version"],
+      "properties": {
+        "path": {
+          "type": "string",
+          "pattern": "^dist/contracts/versions\\.json$"
+        },
+        "sha256": { "$ref": "#/$defs/sha256" },
+        "schema_version": { "type": "integer", "minimum": 1 },
+        "signal_logic_version": { "$ref": "#/$defs/signals_version" }
+      }
+    },
+    "rules_registry_artifact": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "sha256", "schema_version", "signal_logic_version", "rules_count"],
+      "properties": {
+        "path": {
+          "type": "string",
+          "pattern": "^dist/contracts/rules_registry\\.json$"
+        },
+        "sha256": { "$ref": "#/$defs/sha256" },
+        "schema_version": { "type": "integer", "minimum": 1 },
+        "signal_logic_version": { "$ref": "#/$defs/signals_version" },
+        "rules_count": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "rule_versions_artifact": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "sha256", "schema_version", "signal_logic_version", "rules_count"],
+      "properties": {
+        "path": {
+          "type": "string",
+          "pattern": "^dist/contracts/rule_versions\\.json$"
+        },
+        "sha256": { "$ref": "#/$defs/sha256" },
+        "schema_version": { "type": "integer", "minimum": 1 },
+        "signal_logic_version": { "$ref": "#/$defs/signals_version" },
+        "rules_count": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "treesitter_manifest_artifact": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "sha256", "manifest_version", "signal_logic_version"],
+      "properties": {
+        "path": {
+          "type": "string",
+          "pattern": "^dist/contracts/treesitter_manifest\\.json$"
+        },
+        "sha256": { "$ref": "#/$defs/sha256" },
+        "manifest_version": { "type": "integer", "minimum": 1 },
+        "signal_logic_version": { "$ref": "#/$defs/signals_version" }
+      }
+    }
+  }
+}

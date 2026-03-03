@@ -66,6 +66,37 @@ code-rescue fix ./rescue_plan.json --apply --backup
 | `SEC_SQL_INJECTION_001` | Replace | Semi-auto | SQL injection risks |
 | `SEC_PICKLE_LOAD_001` | Flag | Manual | pickle.load() usage |
 | `SEC_YAML_UNSAFE_001` | Replace | Safe | Unsafe YAML loading |
+| `VUE-GOD-001` | Refactor | Manual | Vue component >500 LOC |
+| `VUE-GOD-002` | Refactor | Manual | Vue god object >800 LOC |
+| `VUE-GOD-003` | Refactor | Manual | Vue critical >1500 LOC |
+| `VUE-EXTRACT-001` | Extract | Manual | Extractable template section |
+| `VUE-COMPOSABLE-001` | Extract | Manual | Script-heavy, extract to composable |
+
+### Vue Component Extraction
+
+The `VueComponentFixer` generates extraction scaffolds:
+
+```bash
+# Scaffold for VUE-EXTRACT-001 (template section)
+=== NEW FILE: FilterPanel.vue ===
+<script setup lang="ts">
+interface Props { ... }
+interface Emits { ... }
+const props = defineProps<Props>()
+const emit = defineEmits<Emits>()
+</script>
+<template>...</template>
+
+# Scaffold for VUE-COMPOSABLE-001 (script logic)
+=== NEW FILE: useDataTable.ts ===
+export function useDataTable() {
+  const items = ref([])
+  // ... extracted logic
+  return { items, ... }
+}
+```
+
+Scaffolds require manual review to wire props/events.
 
 ## Schema Compatibility
 

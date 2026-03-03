@@ -16,6 +16,7 @@ from pathlib import Path
 import pytest
 
 from code_rescue.ingest.run_result_loader import load_run_result
+from code_rescue.model.rescue_action import SafetyLevel
 from code_rescue.planner.rescue_planner import create_rescue_plan
 
 
@@ -186,7 +187,7 @@ class TestRescuePlanDeterminism:
         plan = create_rescue_plan(rr)
         plan_dict = plan.to_dict()
 
-        valid_levels = {"safe", "review", "manual"}
+        valid_levels = {level.value for level in SafetyLevel}
 
         for action in plan_dict["actions"]:
             assert action["safety_level"] in valid_levels, (

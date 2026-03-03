@@ -21,7 +21,7 @@ class SafetyLevel(Enum):
     """Safety level of the rescue action."""
 
     SAFE = "safe"               # Guaranteed safe, can auto-apply
-    SEMI_AUTO = "semi_auto"     # Usually safe, recommend review
+    SEMI_AUTO = "review"        # Usually safe, recommend review
     MANUAL = "manual"           # Requires human decision
 
 
@@ -85,6 +85,28 @@ RULE_ACTION_MAP: dict[str, tuple[ActionType, SafetyLevel]] = {
     # Exceptions - flag for review
     "EXC_SWALLOW_001": (ActionType.FLAG, SafetyLevel.MANUAL),
     "EXC_BROAD_LOGGED_001": (ActionType.FLAG, SafetyLevel.MANUAL),
+
+    # Vue components - extraction/refactoring
+    "VUE-GOD-001": (ActionType.REFACTOR, SafetyLevel.MANUAL),
+    "VUE-GOD-002": (ActionType.REFACTOR, SafetyLevel.MANUAL),
+    "VUE-GOD-003": (ActionType.REFACTOR, SafetyLevel.MANUAL),
+    "VUE-EXTRACT-001": (ActionType.EXTRACT, SafetyLevel.MANUAL),
+    "VUE-COMPOSABLE-001": (ActionType.EXTRACT, SafetyLevel.MANUAL),
+
+    # Vue coupling - composable extraction and coupling remediation
+    "VUE-COMPOSE-001": (ActionType.EXTRACT, SafetyLevel.MANUAL),
+    "VUE-COMPOSE-002": (ActionType.REFACTOR, SafetyLevel.MANUAL),
+    "VUE-COUPLE-001": (ActionType.REFACTOR, SafetyLevel.MANUAL),
+    "VUE-COUPLE-002": (ActionType.REFACTOR, SafetyLevel.MANUAL),
+    "VUE-COUPLE-003": (ActionType.REFACTOR, SafetyLevel.MANUAL),
+    "VUE-COUPLE-004": (ActionType.REFACTOR, SafetyLevel.MANUAL),
+
+    # Skylos dead code - unused symbols
+    "SKY_UNUSED_IMPORT_001": (ActionType.REMOVE, SafetyLevel.SAFE),
+    "SKY_UNUSED_FUNC_001": (ActionType.REMOVE, SafetyLevel.SEMI_AUTO),
+    "SKY_UNUSED_CLASS_001": (ActionType.REMOVE, SafetyLevel.MANUAL),
+    "SKY_UNUSED_VAR_001": (ActionType.FLAG, SafetyLevel.MANUAL),
+    "SKY_UNUSED_PARAM_001": (ActionType.FLAG, SafetyLevel.MANUAL),
 }
 
 
