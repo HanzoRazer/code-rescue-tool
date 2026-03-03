@@ -43,22 +43,33 @@ def build_rule_versions() -> dict[str, Any]:
         if not isinstance(rule_id, str) or not isinstance(sem_hash, str) or not sem_hash:
             raise SystemExit("Invalid rules_registry.json: missing rule_id/semantic_hash")
         prev = prior.get(rule_id) if isinstance(prior, dict) else None
-        if isinstance(prev, dict) and prev.get("semantic_hash") == sem_hash:
-            # unchanged: keep prior version
+        prev_hist: list[str] = []
+        if isinstance(prev, dict):
+            h = prev.get("history")
+            if isinstance(h, list) and all(isinstance(x, str) and x for x in h):
+                prev_hist = list(h)
+            elif isinstance(prev.get("semantic_hash"), str) and prev.get("semantic_hash"):
+                # Back-compat: schema_v1 had no history; seed from semantic_hash.
+                prev_hist = [str(prev["semantic_hash"])]
+
+        if prev_hist and prev_hist[-1] == sem_hash:
+            # unchanged: keep history, keep version == len(history)
             out_rules[rule_id] = {
-                "rule_logic_version": int(prev.get("rule_logic_version") or 1),
+                "rule_logic_version": len(prev_hist),
                 "semantic_hash": sem_hash,
+                "history": prev_hist,
             }
         else:
-            # changed or new: bump (or initialize)
-            prev_ver = int(prev.get("rule_logic_version") or 0) if isinstance(prev, dict) else 0
+            # changed or new: append new semantic hash; version == len(history)
+            new_hist = (prev_hist or []) + [sem_hash]
             out_rules[rule_id] = {
-                "rule_logic_version": max(prev_ver + 1, 1),
+                "rule_logic_version": len(new_hist),
                 "semantic_hash": sem_hash,
+                "history": new_hist,
             }
 
     return {
-        "schema_version": 1,
+        "schema_version": 2,
         "generated_by": "scripts/refresh_rule_versions.py",
         "signal_logic_version": _signal_logic_version(),
         "rules": dict(sorted(out_rules.items(), key=lambda kv: kv[0])),

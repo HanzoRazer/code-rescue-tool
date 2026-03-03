@@ -9,7 +9,12 @@
     "artifacts": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["js_ts_surface"],
+      "required": [
+        "js_ts_surface",
+        "contract_versions",
+        "rules_registry",
+        "rule_versions"
+      ],
       "properties": {
         "js_ts_surface": { "type": "boolean" },
         "contract_versions": { "$ref": "#/$defs/contract_versions_artifact" },
@@ -19,6 +24,24 @@
       }
     }
   },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "artifacts": {
+            "properties": { "js_ts_surface": { "const": true } },
+            "required": ["js_ts_surface"]
+          }
+        },
+        "required": ["artifacts"]
+      },
+      "then": {
+        "properties": {
+          "artifacts": { "required": ["treesitter_manifest"] }
+        }
+      }
+    }
+  ],
   "$defs": {
     "sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
     "signals_version": { "type": "string", "pattern": "^signals_v\\d+$" },

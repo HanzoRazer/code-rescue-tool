@@ -10,6 +10,7 @@ from typing import Any
 class RuleVersion:
     rule_logic_version: int
     semantic_hash: str
+    history: tuple[str, ...] = ()
 
 
 def load_rule_versions() -> dict[str, RuleVersion]:
@@ -26,9 +27,15 @@ def load_rule_versions() -> dict[str, RuleVersion]:
     for rid, v in rules.items():
         if not isinstance(rid, str) or not isinstance(v, dict):
             continue
+        hist = v.get("history")
+        if isinstance(hist, list) and all(isinstance(x, str) for x in hist):
+            history = tuple(hist)
+        else:
+            history = ()
         out[rid] = RuleVersion(
             rule_logic_version=int(v.get("rule_logic_version") or 1),
             semantic_hash=str(v.get("semantic_hash") or ""),
+            history=history,
         )
     return out
 

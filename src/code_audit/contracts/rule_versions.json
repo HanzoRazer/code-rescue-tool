@@ -2,26 +2,41 @@
   "generated_by": "scripts/refresh_rule_versions.py",
   "rules": {
     "EXC_EMPTY_CATCH_JS_001": {
+      "history": [
+        "0508ddf7df859091de1f3538363d2b233c7d7993ebfdceee0a580eab2b68a9c2"
+      ],
       "rule_logic_version": 1,
       "semantic_hash": "0508ddf7df859091de1f3538363d2b233c7d7993ebfdceee0a580eab2b68a9c2"
     },
     "GST_GLOBAL_THIS_MUTATION_001": {
+      "history": [
+        "5f5cbee64c675834477b26938f8c3c69d4ab803cd8da270ae05202eb2ffa78d5"
+      ],
       "rule_logic_version": 1,
       "semantic_hash": "5f5cbee64c675834477b26938f8c3c69d4ab803cd8da270ae05202eb2ffa78d5"
     },
     "SEC_DYNAMIC_MODULE_LOAD_JS_001": {
+      "history": [
+        "a9dbdb51f2fb4e22737b2bcfc25194746a72f0f919ad0eb1882b81eecf7556e3"
+      ],
       "rule_logic_version": 1,
       "semantic_hash": "a9dbdb51f2fb4e22737b2bcfc25194746a72f0f919ad0eb1882b81eecf7556e3"
     },
     "SEC_EVAL_JS_001": {
+      "history": [
+        "69d731ff57e692fb203f9a5f215d1c4a5e9bef6f7aacd107744e37b4c9a37bd1"
+      ],
       "rule_logic_version": 1,
       "semantic_hash": "69d731ff57e692fb203f9a5f215d1c4a5e9bef6f7aacd107744e37b4c9a37bd1"
     },
     "SEC_NEW_FUNCTION_JS_001": {
+      "history": [
+        "08ee0c43c4600535a77ec0e6628a073cea995c8eeca5fd3832da958d3dfb93bf"
+      ],
       "rule_logic_version": 1,
       "semantic_hash": "08ee0c43c4600535a77ec0e6628a073cea995c8eeca5fd3832da958d3dfb93bf"
     }
   },
-  "schema_version": 1,
+  "schema_version": 2,
   "signal_logic_version": "signals_v5"
 }

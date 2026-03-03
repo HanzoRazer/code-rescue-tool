@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import shutil
 from pathlib import Path
 from typing import Any
@@ -14,6 +15,9 @@ from typing import Any
 
 ROOT = Path(__file__).resolve().parents[1]
 DIST = ROOT / "dist"
+
+# Environment-driven JS/TS surface toggle (default: enabled)
+RELEASE_ENABLE_JS_TS = os.environ.get("RELEASE_ENABLE_JS_TS", "1") not in ("0", "false", "no", "")
 
 # Producer-side semantic manifests that must be shipped into dist/ and attested in the BOM.
 TREESITTER_MANIFEST_SRC = ROOT / "tests" / "contracts" / "treesitter_manifest.json"
@@ -58,7 +62,8 @@ def generate_release_bom(*, write: bool = True) -> dict[str, Any]:
     artifacts: dict[str, Any] = {}
 
     # JS/TS surface flag
-    artifacts["js_ts_surface"] = True
+    js_ts_surface = bool(RELEASE_ENABLE_JS_TS)
+    artifacts["js_ts_surface"] = js_ts_surface
 
     # ---------------------------------------------------------------------
     # Treesitter manifest attestation
@@ -73,6 +78,15 @@ def generate_release_bom(*, write: bool = True) -> dict[str, Any]:
             "manifest_version": int(ts_obj.get("manifest_version", 0) or 0),
             "signal_logic_version": str(ts_obj.get("signal_logic_version", "") or ""),
         }
+
+    # Schema-level requirement (now conditional on js_ts_surface=true):
+    # Fail early if the BOM declares JS/TS surface but cannot attest treesitter.
+    if artifacts.get("js_ts_surface") is True and "treesitter_manifest" not in artifacts:
+        raise SystemExit(
+            "[release-bom] js_ts_surface=true requires artifacts.treesitter_manifest, but "
+            "tests/contracts/treesitter_manifest.json is missing.\n"
+            "Fix: generate it (python scripts/refresh_treesitter_manifest.py), commit it, and re-run."
+        )
 
     # ---------------------------------------------------------------------
     # Contract versions attestation (version anchor)
@@ -123,6 +137,15 @@ def generate_release_bom(*, write: bool = True) -> dict[str, Any]:
         "signal_logic_version": str(rv_obj.get("signal_logic_version", "") or ""),
         "rules_count": int(len((rv_obj.get("rules") or {}).keys())),
     }
+
+    # ---------------------------------------------------------------------
+    # Hard requirement motif: these must always exist in release BOM.
+    # (Schema now requires them; fail early with a clear error if missing.)
+    # ---------------------------------------------------------------------
+    required_keys = ("js_ts_surface", "contract_versions", "rules_registry", "rule_versions")
+    missing = [k for k in required_keys if k not in artifacts]
+    if missing:
+        raise SystemExit(f"[release-bom] missing required artifacts: {', '.join(missing)}")
 
     # Build final BOM
     bom: dict[str, Any] = {

@@ -17,10 +17,15 @@
     "rule_version": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["rule_logic_version", "semantic_hash"],
+      "required": ["rule_logic_version", "semantic_hash", "history"],
       "properties": {
         "rule_logic_version": { "type": "integer", "minimum": 1 },
-        "semantic_hash": { "type": "string", "pattern": "^[a-f0-9]{64}$" }
+        "semantic_hash": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+        "history": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "type": "string", "pattern": "^[a-f0-9]{64}$" }
+        }
       }
     }
   }

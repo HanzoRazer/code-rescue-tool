@@ -63,3 +63,26 @@ def test_rule_versions_semantic_hash_matches_registry() -> None:
             f"rule_versions semantic_hash mismatch for {rid}.\n"
             "Run: python scripts/refresh_rule_versions.py"
         )
+
+
+def test_rule_evolution_policy_version_equals_history_len_and_hash_is_last() -> None:
+    """
+    Rule evolution policy (granular governance):
+    * rule_logic_version MUST equal len(history)
+    * semantic_hash MUST equal history[-1]
+    * history MUST not contain duplicates back-to-back (no "fake bump")
+    """
+    rv = _load(RULE_VERSIONS).get("rules") or {}
+    assert isinstance(rv, dict)
+    for rid, ent in rv.items():
+        assert isinstance(ent, dict), f"{rid} entry must be object"
+        v = ent.get("rule_logic_version")
+        h = ent.get("semantic_hash")
+        hist = ent.get("history")
+        assert isinstance(v, int) and v >= 1, f"{rid} invalid rule_logic_version"
+        assert isinstance(h, str) and h, f"{rid} invalid semantic_hash"
+        assert isinstance(hist, list) and len(hist) >= 1, f"{rid} invalid history"
+        assert v == len(hist), f"{rid} rule_logic_version must equal len(history)"
+        assert h == hist[-1], f"{rid} semantic_hash must equal history[-1]"
+        for i in range(1, len(hist)):
+            assert hist[i] != hist[i - 1], f"{rid} history has duplicate adjacent hashes (fake bump)"

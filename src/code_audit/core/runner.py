@@ -204,6 +204,59 @@ def run_scan(
                     ]
                 a.analyze_multilang(source_files_by_lang, sink)
 
+    findings = [_normalize_finding_for_contract(f) for f in sink.findings]
+
+    # Strict contract validation (hard fail on invalid finding shape).
+    try:
+        from code_audit.contracts.validate import validate_finding
+    except Exception as e:
+        raise RuntimeError(f"Unable to import finding validator: {e}") from e
+
+    for f in findings:
+        if isinstance(f, dict):
+            validate_finding(f)
+
+    # ------------------------------------------------------------------
+    # Granular governance guard:
+    # - If a finding's rule_id exists in rule_versions.json, it MUST emit
+    #   rule_logic_version and it MUST match the authoritative value.
+    # - If a finding emits rule_logic_version, it must match authoritative value
+    #   (even if the rule_id is unknown to rule_versions, this will resolve to 1).
+    # This prevents analyzers from lying (accidentally or otherwise) about the
+    # rule-level semantic version they are emitting.
+    # ------------------------------------------------------------------
+    try:
+        from code_audit.contracts.rules import load_rule_versions as _load_rv
+        from code_audit.contracts.rules import rule_logic_version as _rlv
+    except Exception as e:
+        raise RuntimeError(f"Unable to import rule version resolver: {e}") from e
+
+    _rv = _load_rv()
+
+    for f in findings:
+        if not isinstance(f, dict):
+            continue
+        rid = f.get("rule_id")
+        if not isinstance(rid, str) or not rid:
+            continue
+        # If the rule is governed, the finding must carry the governed version.
+        if rid in _rv and "rule_logic_version" not in f:
+            raise RuntimeError(
+                f"Missing rule_logic_version for governed rule_id={rid}. "
+                "Findings for governed rules must emit rule_logic_version."
+            )
+        if "rule_logic_version" in f:
+            expected = int(_rlv(rid))
+            got = int(f.get("rule_logic_version") or 0)
+            if got != expected:
+                raise RuntimeError(
+                    f"Invalid rule_logic_version for rule_id={rid}: got={got} expected={expected}. "
+                    "Refresh rule versions or fix analyzer emission."
+                )
+
+    # Deterministic output: findings order must be stable across platforms and
+    # independent of tree-sitter capture ordering or filesystem traversal.
+
     return RunResult(
         {
             "run_id": run_id,
@@ -212,6 +265,6 @@ def run_scan(
             "root": str(root),
             "enable_js_ts": enable_js_ts,
             "file_counts": {k: len(v) for k, v in (discovered or {}).items()},
-            "findings": [_normalize_finding_for_contract(f) for f in sink.findings],
+            "findings": findings,
         }
     )
