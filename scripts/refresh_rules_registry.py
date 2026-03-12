@@ -1,25 +1,18 @@
-"""scripts/refresh_rules_registry.py
-
-Regenerates src/code_audit/contracts/rules_registry.json from the canonical
-rule definitions and their semantic inputs. Each rule gets a deterministic
-SHA-256 hash so CI can detect when query/analyzer files drift.
-"""
 from __future__ import annotations
 
 import hashlib
 import json
-from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
 
 ROOT = Path(__file__).resolve().parents[1]
-OUT = ROOT / "src" / "code_audit" / "contracts" / "rules_registry.json"
 VERSIONS = ROOT / "src" / "code_audit" / "contracts" / "versions.json"
+REGISTRY = ROOT / "src" / "code_audit" / "contracts" / "rules_registry.json"
 
-# Semantic levers for the current JS/TS rule set.
-JS_TS_QUERY = ROOT / "src" / "code_audit" / "data" / "treesitter" / "queries" / "js_ts_security.scm"
-JS_TS_ANALYZER = ROOT / "src" / "code_audit" / "analyzers" / "js_ts_security.py"
+
+def _load_json(p: Path) -> dict[str, Any]:
+    return json.loads(p.read_text(encoding="utf-8"))
 
 
 def _sha256_bytes(b: bytes) -> str:
@@ -30,107 +23,128 @@ def _sha256_file(p: Path) -> str:
     return _sha256_bytes(p.read_bytes())
 
 
-def _load_signal_logic_version() -> str:
-    if not VERSIONS.exists():
-        raise SystemExit(f"Missing version anchor: {VERSIONS.relative_to(ROOT)}")
-    obj = json.loads(VERSIONS.read_text(encoding="utf-8"))
-    v = obj.get("signal_logic_version")
+def _stable_join_hash(parts: list[str]) -> str:
+    """
+    Combine already-hex strings deterministically.
+    """
+    h = hashlib.sha256()
+    for x in parts:
+        h.update(x.encode("utf-8"))
+        h.update(b"\n")
+    return h.hexdigest()
+
+
+def _signal_logic_version() -> str:
+    v = _load_json(VERSIONS).get("signal_logic_version")
     if not isinstance(v, str) or not v.startswith("signals_v"):
-        raise SystemExit(f"Invalid signal_logic_version in {VERSIONS.relative_to(ROOT)}: {v!r}")
+        raise SystemExit("Invalid signal_logic_version in versions.json")
     return v
 
 
-@dataclass(frozen=True)
-class RuleDef:
-    rule_id: str
-    analyzer: str
-    languages: list[str]
-    title: str
-    semantic_inputs: list[Path]
-
-    def semantic_hash(self) -> str:
-        """
-        Per-rule semantic hash.
-        We hash a stable recipe: rule_id + ordered list of (path, sha256(file)).
-        """
-        parts: list[str] = [self.rule_id]
-        for p in self.semantic_inputs:
-            rel = p.relative_to(ROOT).as_posix()
-            parts.append(rel)
-            parts.append(_sha256_file(p))
-        return _sha256_bytes(("\n".join(parts) + "\n").encode("utf-8"))
-
-    def to_json(self) -> dict[str, Any]:
-        return {
-            "rule_id": self.rule_id,
-            "analyzer": self.analyzer,
-            "languages": self.languages,
-            "title": self.title,
-            "semantic_inputs": [p.relative_to(ROOT).as_posix() for p in self.semantic_inputs],
-            "semantic_hash": self.semantic_hash(),
-        }
+def _repo_path(rel: str) -> Path:
+    p = (ROOT / rel).resolve()
+    # Harden: inputs must remain within repo root (no absolute paths, no .. escape).
+    try:
+        p.relative_to(ROOT.resolve())
+    except Exception:
+        raise SystemExit(f"semantic_inputs path escapes repo root: {rel}")
+    return p
 
 
-def build_registry() -> dict[str, Any]:
-    # Ensure inputs exist (semantic hash must be meaningful and deterministic).
-    for p in (JS_TS_QUERY, JS_TS_ANALYZER):
-        if not p.exists():
-            raise SystemExit(f"Missing semantic input: {p.relative_to(ROOT)}")
+def _validate_semantic_input_path(rel: str) -> None:
+    # Harden: ban absolute paths and traversal patterns.
+    if rel.startswith(("/", "\\")) or (len(rel) > 1 and rel[1] == ":"):
+        raise SystemExit(f"semantic_inputs must be repo-relative (not absolute): {rel}")
+    if ".." in Path(rel).parts:
+        raise SystemExit(f"semantic_inputs must not contain '..' traversal: {rel}")
+    if "\\" in rel:
+        raise SystemExit(f"semantic_inputs must use forward slashes: {rel}")
 
-    rules: list[RuleDef] = [
-        RuleDef(
-            rule_id="SEC_EVAL_JS_001",
-            analyzer="js_ts_security_preview",
-            languages=["js", "ts"],
-            title="Use of eval(...)",
-            semantic_inputs=[JS_TS_QUERY, JS_TS_ANALYZER],
-        ),
-        RuleDef(
-            rule_id="SEC_NEW_FUNCTION_JS_001",
-            analyzer="js_ts_security_preview",
-            languages=["js", "ts"],
-            title="Use of new Function(...)",
-            semantic_inputs=[JS_TS_QUERY, JS_TS_ANALYZER],
-        ),
-        RuleDef(
-            rule_id="EXC_EMPTY_CATCH_JS_001",
-            analyzer="js_ts_security_preview",
-            languages=["js", "ts"],
-            title="Empty catch block",
-            semantic_inputs=[JS_TS_QUERY, JS_TS_ANALYZER],
-        ),
-        RuleDef(
-            rule_id="GST_GLOBAL_THIS_MUTATION_001",
-            analyzer="js_ts_security_preview",
-            languages=["js", "ts"],
-            title="Mutation of globalThis/window properties",
-            semantic_inputs=[JS_TS_QUERY, JS_TS_ANALYZER],
-        ),
-        RuleDef(
-            rule_id="SEC_DYNAMIC_MODULE_LOAD_JS_001",
-            analyzer="js_ts_security_preview",
-            languages=["js", "ts"],
-            title="Dynamic module load via require/import non-literal",
-            semantic_inputs=[JS_TS_QUERY, JS_TS_ANALYZER],
-        ),
-    ]
 
-    # Stable ordering
-    rules_json = [r.to_json() for r in sorted(rules, key=lambda x: x.rule_id)]
+def _semantic_hash_for_rule(rule: dict[str, Any]) -> str:
+    """
+    Compute semantic_hash for a rule from declared semantic_inputs.
+
+    semantic_inputs: list of repo-relative file paths.
+
+     - Analyzer module(s)
+     - Query file(s)
+     - Any other explicit semantic levers for that rule
+    """
+    inputs = rule.get("semantic_inputs") or []
+    if not isinstance(inputs, list) or not inputs:
+        raise SystemExit(f"Rule {rule.get('rule_id')} missing semantic_inputs")
+
+    # Deterministic ordering: sort paths; hash content; then hash the list of hashes.
+    rels: list[str] = []
+    for x in inputs:
+        if not isinstance(x, str) or not x:
+            raise SystemExit(f"Rule {rule.get('rule_id')} has invalid semantic_inputs entry: {x!r}")
+        _validate_semantic_input_path(x)
+        rels.append(x)
+
+    rels = sorted(set(rels))
+
+    file_hashes: list[str] = []
+    for rel in rels:
+        p = _repo_path(rel)
+        if not p.exists() or not p.is_file():
+            raise SystemExit(f"Rule {rule.get('rule_id')} semantic input missing: {rel}")
+        file_hashes.append(f"{rel}:{_sha256_file(p)}")
+
+    # Also bind the rule_id itself to avoid cross-rule collisions if inputs match.
+    return _stable_join_hash([str(rule.get("rule_id") or "")] + file_hashes)
+
+
+def build_rules_registry() -> dict[str, Any]:
+    obj = _load_json(REGISTRY)
+    rules = obj.get("rules") or []
+    if not isinstance(rules, list):
+        raise SystemExit("Invalid rules_registry.json: rules must be a list")
+
+    out_rules: list[dict[str, Any]] = []
+    for r in rules:
+        if not isinstance(r, dict):
+            continue
+        rid = r.get("rule_id")
+        if not isinstance(rid, str) or not rid:
+            raise SystemExit("Invalid rules_registry.json: rule_id missing")
+        rr = dict(r)
+        # Canonicalize semantic_inputs for determinism
+        sin = rr.get("semantic_inputs") or []
+        if not isinstance(sin, list) or not sin:
+            raise SystemExit(f"Rule {rid} missing semantic_inputs")
+        canon: list[str] = []
+        for x in sin:
+            if isinstance(x, str) and x:
+                _validate_semantic_input_path(x)
+                canon.append(x)
+        rr["semantic_inputs"] = sorted(set(canon))
+        rr["semantic_hash"] = _semantic_hash_for_rule(rr)
+        out_rules.append(rr)
+
+    out_rules = sorted(out_rules, key=lambda d: str(d.get("rule_id") or ""))
+
+    # Harden: refuse to proceed if there are any duplicate rule_ids after canonicalization.
+    ids = [str(x.get("rule_id") or "") for x in out_rules]
+    if any(not rid for rid in ids):
+        raise SystemExit("rules_registry contains an empty rule_id after processing")
+    if len(ids) != len(set(ids)):
+        dups = sorted({rid for rid in ids if ids.count(rid) > 1})
+        raise SystemExit("Duplicate rule_id entries detected in rules_registry:\n" + "\n".join(dups))
 
     return {
-        "schema_version": 1,
+        "schema_version": int(obj.get("schema_version") or 1),
         "generated_by": "scripts/refresh_rules_registry.py",
-        "signal_logic_version": _load_signal_logic_version(),
-        "rules": rules_json,
+        "signal_logic_version": _signal_logic_version(),
+        "rules": out_rules,
     }
 
 
 def main() -> int:
-    reg = build_registry()
-    OUT.parent.mkdir(parents=True, exist_ok=True)
-    OUT.write_text(json.dumps(reg, indent=2, sort_keys=True) + "\n", encoding="utf-8")
-    print(f"[code-audit] wrote {OUT.relative_to(ROOT)} ({len(reg['rules'])} rules)")
+    out = build_rules_registry()
+    REGISTRY.write_text(json.dumps(out, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    print(f"[code-audit] wrote {REGISTRY.relative_to(ROOT)} ({len(out['rules'])} rules)")
     return 0
 
 

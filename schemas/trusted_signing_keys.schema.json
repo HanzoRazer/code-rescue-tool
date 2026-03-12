@@ -1,0 +1,29 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Trusted Signing Keys Registry (code_audit)",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "generated_by", "keys"],
+  "properties": {
+    "schema_version": { "type": "integer", "minimum": 1 },
+    "generated_by": { "type": "string", "minLength": 1 },
+    "keys": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/key_entry" }
+    }
+  },
+  "$defs": {
+    "key_entry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["key_id", "status", "created_at"],
+      "properties": {
+        "key_id": { "type": "string", "minLength": 1 },
+        "status": { "type": "string", "enum": ["active", "retired"] },
+        "created_at": { "type": "string", "minLength": 4 },
+        "notes": { "type": "string" }
+      }
+    }
+  }
+}

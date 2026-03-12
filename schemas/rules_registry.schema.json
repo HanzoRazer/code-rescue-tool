@@ -6,7 +6,10 @@
   "required": ["schema_version", "generated_by", "signal_logic_version", "rules"],
   "properties": {
     "schema_version": { "type": "integer", "minimum": 1 },
-    "generated_by": { "type": "string", "minLength": 1 },
+    "generated_by": {
+      "type": "string",
+      "const": "scripts/refresh_rules_registry.py"
+    },
     "signal_logic_version": { "type": "string", "pattern": "^signals_v\\d+$" },
     "rules": {
       "type": "array",
@@ -17,21 +20,14 @@
     "sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
     "rule": {
       "type": "object",
-      "additionalProperties": false,
-      "required": ["rule_id", "analyzer", "languages", "title", "semantic_inputs", "semantic_hash"],
+      "additionalProperties": true,
+      "required": ["rule_id", "semantic_inputs", "semantic_hash"],
       "properties": {
         "rule_id": { "type": "string", "minLength": 1 },
-        "analyzer": { "type": "string", "minLength": 1 },
-        "languages": {
-          "type": "array",
-          "items": { "type": "string", "minLength": 1 },
-          "minItems": 1
-        },
-        "title": { "type": "string", "minLength": 1 },
         "semantic_inputs": {
           "type": "array",
-          "items": { "type": "string", "minLength": 1 },
-          "minItems": 1
+          "minItems": 1,
+          "items": { "type": "string", "minLength": 1 }
         },
         "semantic_hash": { "$ref": "#/$defs/sha256" }
       }

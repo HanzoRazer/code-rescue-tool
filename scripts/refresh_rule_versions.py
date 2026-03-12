@@ -29,6 +29,15 @@ def build_rule_versions() -> dict[str, Any]:
     if not isinstance(rules, list):
         raise SystemExit("Invalid rules_registry.json: rules must be a list")
 
+    # Harden: registry must have unique rule_ids (refresh should fail-closed).
+    reg_ids: list[str] = []
+    for r in rules:
+        if isinstance(r, dict) and isinstance(r.get("rule_id"), str):
+            reg_ids.append(r["rule_id"])
+    if len(reg_ids) != len(set(reg_ids)):
+        dups = sorted({rid for rid in reg_ids if reg_ids.count(rid) > 1})
+        raise SystemExit("Duplicate rule_id entries detected in rules_registry:\n" + "\n".join(dups))
+
     # If rule_versions already exists, carry forward version counters.
     prior: dict[str, Any] = {}
     if OUT.exists():
@@ -52,6 +61,19 @@ def build_rule_versions() -> dict[str, Any]:
                 # Back-compat: schema_v1 had no history; seed from semantic_hash.
                 prev_hist = [str(prev["semantic_hash"])]
 
+            # Harden: prior file must already be internally consistent.
+            pv = prev.get("rule_logic_version")
+            if prev_hist:
+                if not isinstance(pv, int) or pv != len(prev_hist):
+                    raise SystemExit(
+                        f"Invalid existing rule_versions.json for {rule_id}: "
+                        f"rule_logic_version must equal len(history) (got {pv} vs {len(prev_hist)})"
+                    )
+                if prev.get("semantic_hash") != prev_hist[-1]:
+                    raise SystemExit(
+                        f"Invalid existing rule_versions.json for {rule_id}: semantic_hash must equal history[-1]"
+                    )
+
         if prev_hist and prev_hist[-1] == sem_hash:
             # unchanged: keep history, keep version == len(history)
             out_rules[rule_id] = {
@@ -62,11 +84,41 @@ def build_rule_versions() -> dict[str, Any]:
         else:
             # changed or new: append new semantic hash; version == len(history)
             new_hist = (prev_hist or []) + [sem_hash]
+            # Harden: history is append-only. Never rewrite prior prefix.
+            if prev_hist and new_hist[: len(prev_hist)] != prev_hist:
+                raise SystemExit(
+                    f"Rule history rewrite detected for {rule_id}. "
+                    "rule_versions history must be append-only."
+                )
+
+            # Harden: do not allow duplicate history entries anywhere
+            # (beyond adjacent check enforced elsewhere). This prevents
+            # semantic regressions silently reusing an older hash.
+            if len(new_hist) != len(set(new_hist)):
+                raise SystemExit(
+                    f"Invalid rule_versions history for {rule_id}: "
+                    "semantic hashes must be globally unique in history."
+                )
             out_rules[rule_id] = {
                 "rule_logic_version": len(new_hist),
                 "semantic_hash": sem_hash,
                 "history": new_hist,
             }
+
+    # ------------------------------------------------------------------
+    # Harden: ensure no orphaned rule_versions entries remain if a rule
+    # is removed from rules_registry. History must not silently persist.
+    # ------------------------------------------------------------------
+    registry_ids = {r.get("rule_id") for r in rules if isinstance(r, dict)}
+    prior_ids = set(prior.keys()) if isinstance(prior, dict) else set()
+    orphaned = sorted(prior_ids - registry_ids)
+    if orphaned:
+        raise SystemExit(
+            "Orphaned rule_versions entries detected (rule removed from registry but "
+            "still present in rule_versions.json):\n"
+            + "\n".join(orphaned)
+            + "\nRemove these entries or restore the rule in rules_registry.json."
+        )
 
     return {
         "schema_version": 2,

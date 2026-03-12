@@ -138,6 +138,309 @@ def check_release_bom_generator_gate() -> list[dict[str, str]]:
             _require_dist_path("rules_registry", "dist/contracts/rules_registry.json")
             _require_dist_path("rule_versions", "dist/contracts/rule_versions.json")
 
+            # Supply-chain signatures:
+            # - artifacts.supply_chain_signed is canonical declaration.
+            # - If true OR if CODE_AUDIT_REQUIRE_SIGNATURES=1, require both signature artifacts present
+            #   and their dist files exist.
+            import os
+            require_sigs = (os.environ.get("CODE_AUDIT_REQUIRE_SIGNATURES", "") or "").strip().lower() in ("1", "true", "yes", "on")
+
+            allow_mixed_keys = (os.environ.get("CODE_AUDIT_ALLOW_MIXED_SIGNATURE_KEYS", "") or "").strip().lower() in ("1", "true", "yes", "on")
+            scs = arts.get("supply_chain_signed") if isinstance(arts, dict) else None
+            if not isinstance(scs, bool):
+                issues.append(_issue(
+                    "invalid_required_artifact",
+                    "release_bom.json:artifacts.supply_chain_signed",
+                    "boolean",
+                    scs,
+                ))
+                scs = False
+
+            signing_kid = arts.get("signing_key_id") if isinstance(arts, dict) else None
+            if scs is True:
+                if not isinstance(signing_kid, str) or not signing_kid.strip():
+                    issues.append(_issue(
+                        "invalid_required_artifact",
+                        "release_bom.json:artifacts.signing_key_id",
+                        "non-empty string when supply_chain_signed=true",
+                        signing_kid,
+                    ))
+            elif not isinstance(signing_kid, str):
+                issues.append(_issue(
+                    "invalid_required_artifact",
+                    "release_bom.json:artifacts.signing_key_id",
+                    "string",
+                    signing_kid,
+                ))
+
+            if require_sigs and scs is not True:
+                issues.append(_issue(
+                    "invalid_required_artifact",
+                    "release_bom.json:artifacts.supply_chain_signed",
+                    True,
+                    scs,
+                ))
+
+            if scs is False:
+                # Tighten: unsigned BOM must not carry signature-related artifacts.
+                for key in ("rule_pack_signature", "release_bom_signature", "trusted_signing_keys"):
+                    if key in arts:
+                        issues.append(_issue(
+                            "invalid_required_artifact",
+                            f"release_bom.json:artifacts.{key}",
+                            "absent when supply_chain_signed=false",
+                            "<present>",
+                        ))
+
+            if scs is True or require_sigs:
+                # trusted_signing_keys must exist in signed mode
+                _require_dist_path("trusted_signing_keys", "dist/contracts/trusted_signing_keys.json")
+                def _is_hex64(x: object) -> bool:
+                    return isinstance(x, str) and len(x) == 64 and all(c in "0123456789abcdef" for c in x)
+
+                for key, expected_rel in (
+                    ("rule_pack_signature", "dist/contracts/rule_pack.sig.json"),
+                    ("release_bom_signature", "dist/release_bom.sig.json"),
+                ):
+                    a = arts.get(key)
+                    if not isinstance(a, dict):
+                        issues.append(_issue(
+                            "invalid_required_artifact",
+                            f"release_bom.json:artifacts.{key}",
+                            "object (required when CODE_AUDIT_REQUIRE_SIGNATURES=1)",
+                            type(a).__name__ if a is not None else "<missing>",
+                        ))
+                        continue
+                    rel = a.get("path")
+                    if rel != expected_rel:
+                        issues.append(_issue(
+                            "invalid_required_artifact",
+                            f"release_bom.json:artifacts.{key}.path",
+                            expected_rel,
+                            rel,
+                        ))
+                        continue
+                    p = (ROOT / rel).resolve()
+                    if not p.exists():
+                        issues.append(_issue(
+                            "missing_dist_artifact",
+                            f"release_bom.json:artifacts.{key}.path",
+                            f"existing {expected_rel}",
+                            str(p),
+                        ))
+                    else:
+                        # Tighten: signature metadata shape (fast checks; deep checks happen in consistency).
+                        alg = a.get("algorithm")
+                        if alg != "hmac-sha256":
+                            issues.append(_issue(
+                                "invalid_required_artifact",
+                                f"release_bom.json:artifacts.{key}.algorithm",
+                                "hmac-sha256",
+                                alg,
+                            ))
+                        for fld in ("sha256", "payload_sha256", "signature"):
+                            val = a.get(fld)
+                            if not _is_hex64(val):
+                                issues.append(_issue(
+                                    "invalid_required_artifact",
+                                    f"release_bom.json:artifacts.{key}.{fld}",
+                                    "64-char lowercase hex",
+                                    val,
+                                ))
+                        kid = a.get("key_id")
+                        if not isinstance(kid, str) or not kid.strip():
+                            issues.append(_issue(
+                                "invalid_required_artifact",
+                                f"release_bom.json:artifacts.{key}.key_id",
+                                "non-empty string",
+                                kid,
+                            ))
+                        elif isinstance(signing_kid, str) and signing_kid.strip() and kid != signing_kid:
+                            issues.append(_issue(
+                                "invalid_required_artifact",
+                                f"release_bom.json:artifacts.{key}.key_id",
+                                f"matches artifacts.signing_key_id ({signing_kid})",
+                                kid,
+                            ))
+
+                # Tighten: by default both signatures must use the same key_id.
+                rp_sig = arts.get("rule_pack_signature")
+                bom_sig = arts.get("release_bom_signature")
+                rp_kid = rp_sig.get("key_id") if isinstance(rp_sig, dict) else None
+                bom_kid = bom_sig.get("key_id") if isinstance(bom_sig, dict) else None
+                if (
+                    isinstance(rp_kid, str) and rp_kid
+                    and isinstance(bom_kid, str) and bom_kid
+                    and rp_kid != bom_kid
+                    and not allow_mixed_keys
+                ):
+                    issues.append(_issue(
+                        "invalid_required_artifact",
+                        "release_bom.json:artifacts.{rule_pack_signature,release_bom_signature}.key_id",
+                        f"same key_id (or CODE_AUDIT_ALLOW_MIXED_SIGNATURE_KEYS=1)",
+                        f"{rp_kid} != {bom_kid}",
+                    ))
+
+                # Tighten: the two signatures must correspond to different payloads.
+                rp_psha = rp_sig.get("payload_sha256") if isinstance(rp_sig, dict) else None
+                bom_psha = bom_sig.get("payload_sha256") if isinstance(bom_sig, dict) else None
+                rp_sig_hex = rp_sig.get("signature") if isinstance(rp_sig, dict) else None
+                bom_sig_hex = bom_sig.get("signature") if isinstance(bom_sig, dict) else None
+                if (
+                    isinstance(rp_psha, str) and isinstance(bom_psha, str)
+                    and rp_psha == bom_psha
+                ):
+                    issues.append(_issue(
+                        "invalid_required_artifact",
+                        "release_bom.json:artifacts.{rule_pack_signature,release_bom_signature}.payload_sha256",
+                        "different payload_sha256 values",
+                        rp_psha,
+                    ))
+                if (
+                    isinstance(rp_sig_hex, str) and isinstance(bom_sig_hex, str)
+                    and rp_sig_hex == bom_sig_hex
+                ):
+                    issues.append(_issue(
+                        "invalid_required_artifact",
+                        "release_bom.json:artifacts.{rule_pack_signature,release_bom_signature}.signature",
+                        "different signature values",
+                        rp_sig_hex,
+                    ))
+
+                # Tighten: trusted_signing_keys keys_count must match file contents
+                try:
+                    a = arts.get("trusted_signing_keys")
+                    rel = a.get("path") if isinstance(a, dict) else None
+                    p = (ROOT / rel).resolve() if isinstance(rel, str) else None
+                    obj = json.loads(p.read_text(encoding="utf-8")) if p and p.exists() else None
+                    if isinstance(a, dict) and isinstance(obj, dict):
+                        # Full schema validation for trusted_signing_keys (defense-in-depth)
+                        try:
+                            import jsonschema as _jschema  # type: ignore
+                            schema_path = ROOT / "schemas" / "trusted_signing_keys.schema.json"
+                            if not schema_path.exists():
+                                issues.append(_issue(
+                                    "invalid_required_artifact",
+                                    "schemas/trusted_signing_keys.schema.json",
+                                    "existing schema file",
+                                    "<missing>",
+                                ))
+                            else:
+                                schema = json.loads(schema_path.read_text(encoding="utf-8"))
+                                _jschema.validate(instance=obj, schema=schema)
+                        except Exception as e:
+                            issues.append(_issue(
+                                "invalid_required_artifact",
+                                "dist/contracts/trusted_signing_keys.json",
+                                "schema-valid JSON",
+                                str(e),
+                            ))
+                        keys = obj.get("keys") or []
+                        exp = a.get("keys_count")
+                        if not isinstance(keys, list) or not isinstance(exp, int) or exp != len(keys):
+                            issues.append(_issue(
+                                "invalid_required_artifact",
+                                "release_bom.json:artifacts.trusted_signing_keys.keys_count",
+                                len(keys) if isinstance(keys, list) else "<list>",
+                                exp,
+                            ))
+                        # Tighten: schema_version match
+                        sv = obj.get("schema_version")
+                        a_sv = a.get("schema_version")
+                        if not isinstance(sv, int) or not isinstance(a_sv, int) or sv != a_sv or sv < 1:
+                            issues.append(_issue(
+                                "invalid_required_artifact",
+                                "release_bom.json:artifacts.trusted_signing_keys.schema_version",
+                                sv,
+                                a_sv,
+                            ))
+                        # Tighten: sha256 looks like hex64
+                        sha = a.get("sha256")
+                        if not _is_hex64(sha):
+                            issues.append(_issue(
+                                "invalid_required_artifact",
+                                "release_bom.json:artifacts.trusted_signing_keys.sha256",
+                                "64-char lowercase hex",
+                                sha,
+                            ))
+                        # Tighten: ensure at least one active key and sorted unique ids (fast checks)
+                        if isinstance(keys, list):
+                            ids = []
+                            active = 0
+                            for k in keys:
+                                if not isinstance(k, dict):
+                                    continue
+                                kid = k.get("key_id")
+                                st = k.get("status")
+                                if isinstance(kid, str):
+                                    ids.append(kid)
+                                if st == "active":
+                                    active += 1
+                            if ids != sorted(ids) or len(ids) != len(set(ids)):
+                                issues.append(_issue(
+                                    "invalid_required_artifact",
+                                    "dist/contracts/trusted_signing_keys.json:keys",
+                                    "sorted unique key_id list",
+                                    "<unsorted-or-duplicate>",
+                                ))
+                            if active < 1:
+                                issues.append(_issue(
+                                    "invalid_required_artifact",
+                                    "dist/contracts/trusted_signing_keys.json:keys.status",
+                                    ">=1 active",
+                                    active,
+                                ))
+
+                            # Tighten: signature key_ids must be present in trusted_signing_keys (fast check)
+                            if isinstance(keys, list):
+                                known = set()
+                                for k in keys:
+                                    if isinstance(k, dict) and isinstance(k.get("key_id"), str):
+                                        known.add(k["key_id"])
+                                for sig_key in ("rule_pack_signature", "release_bom_signature"):
+                                    sig_a = arts.get(sig_key)
+                                    kid = sig_a.get("key_id") if isinstance(sig_a, dict) else None
+                                    if isinstance(kid, str) and kid and (kid not in known):
+                                        issues.append(_issue(
+                                            "invalid_required_artifact",
+                                            f"release_bom.json:artifacts.{sig_key}.key_id",
+                                            "present in trusted_signing_keys",
+                                            kid,
+                                        ))
+
+                            # Tighten: signature key_ids must be active unless explicitly allowed
+                            allow_retired = (os.environ.get("CODE_AUDIT_ALLOW_RETIRED_SIGNATURE_KEYS", "") or "").strip().lower() in ("1", "true", "yes", "on")
+                            status_by_id: dict[str, str] = {}
+                            for k in keys:
+                                if isinstance(k, dict) and isinstance(k.get("key_id"), str) and isinstance(k.get("status"), str):
+                                    status_by_id[k["key_id"]] = k["status"]
+                            for sig_key in ("rule_pack_signature", "release_bom_signature"):
+                                sig_a = arts.get(sig_key)
+                                kid = sig_a.get("key_id") if isinstance(sig_a, dict) else None
+                                if isinstance(kid, str) and kid:
+                                    st = status_by_id.get(kid)
+                                    if st is None:
+                                        issues.append(_issue(
+                                            "invalid_required_artifact",
+                                            f"release_bom.json:artifacts.{sig_key}.key_id",
+                                            "present in trusted_signing_keys",
+                                            kid,
+                                        ))
+                                    elif st != "active" and not allow_retired:
+                                        issues.append(_issue(
+                                            "invalid_required_artifact",
+                                            f"release_bom.json:artifacts.{sig_key}.key_id",
+                                            "active trusted key_id",
+                                            f"{kid}:{st}",
+                                        ))
+                except Exception:
+                    issues.append(_issue(
+                        "invalid_required_artifact",
+                        "release_bom.json:artifacts.trusted_signing_keys",
+                        "parseable JSON with keys list",
+                        "<unreadable>",
+                    ))
+
             # Tighten: if js_ts_surface=true, treesitter_manifest must exist and be valid.
             if js_ts_surface is True:
                 a = arts.get("treesitter_manifest")
@@ -307,6 +610,22 @@ def check_release_bom_generator_gate() -> list[dict[str, str]]:
                                 rr_ids.append(r["rule_id"])
                                 if isinstance(r.get("semantic_hash"), str):
                                     rr_hash_by_id[r["rule_id"]] = r["semantic_hash"]
+                        rr_ids = sorted(set(rr_ids))
+                        # Tighten: registry rule_ids must be unique + sorted.
+                        if rr_ids != sorted(rr_ids):
+                            issues.append(_issue(
+                                "invalid_required_artifact",
+                                "dist/contracts/rules_registry.json:rules",
+                                "sorted by rule_id",
+                                "not_sorted",
+                            ))
+                        if len(rr_ids) != len(set(rr_ids)):
+                            issues.append(_issue(
+                                "invalid_required_artifact",
+                                "dist/contracts/rules_registry.json:rules",
+                                "unique rule_id entries",
+                                "duplicates",
+                            ))
                         rr_ids = sorted(set(rr_ids))
 
                         for rid in rr_ids:

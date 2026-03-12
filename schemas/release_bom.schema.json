@@ -11,16 +11,23 @@
       "additionalProperties": false,
       "required": [
         "js_ts_surface",
+        "supply_chain_signed",
         "contract_versions",
         "rules_registry",
         "rule_versions"
       ],
       "properties": {
         "js_ts_surface": { "type": "boolean" },
+        "supply_chain_signed": { "type": "boolean" },
+        "signing_key_id": { "type": "string", "minLength": 1 },
         "contract_versions": { "$ref": "#/$defs/contract_versions_artifact" },
         "rules_registry": { "$ref": "#/$defs/rules_registry_artifact" },
         "rule_versions": { "$ref": "#/$defs/rule_versions_artifact" },
-        "treesitter_manifest": { "$ref": "#/$defs/treesitter_manifest_artifact" }
+        "rule_pack": { "$ref": "#/$defs/rule_pack_artifact" },
+        "treesitter_manifest": { "$ref": "#/$defs/treesitter_manifest_artifact" },
+        "rule_pack_signature": { "$ref": "#/$defs/rule_pack_signature_artifact" },
+        "release_bom_signature": { "$ref": "#/$defs/release_bom_signature_artifact" },
+        "trusted_signing_keys": { "$ref": "#/$defs/trusted_signing_keys_artifact" }
       }
     }
   },
@@ -40,11 +47,62 @@
           "artifacts": { "required": ["treesitter_manifest"] }
         }
       }
+    },
+    {
+      "if": {
+        "properties": {
+          "artifacts": {
+            "properties": { "supply_chain_signed": { "const": true } },
+            "required": ["supply_chain_signed"]
+          }
+        },
+        "required": ["artifacts"]
+      },
+      "then": {
+        "properties": {
+          "artifacts": { "required": ["signing_key_id", "rule_pack_signature", "release_bom_signature", "trusted_signing_keys"] }
+        }
+      }
     }
   ],
   "$defs": {
     "sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
     "signals_version": { "type": "string", "pattern": "^signals_v\\d+$" },
+    "signature_artifact": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "sha256", "algorithm", "key_id", "payload_sha256", "signature"],
+      "properties": {
+        "path": { "type": "string", "minLength": 1 },
+        "sha256": { "$ref": "#/$defs/sha256" },
+        "algorithm": { "type": "string", "enum": ["hmac-sha256"] },
+        "key_id": { "type": "string", "minLength": 1 },
+        "payload_sha256": { "$ref": "#/$defs/sha256" },
+        "signature": { "$ref": "#/$defs/sha256" }
+      }
+    },
+    "rule_pack_signature_artifact": {
+      "allOf": [
+        { "$ref": "#/$defs/signature_artifact" },
+        {
+          "type": "object",
+          "properties": {
+            "path": { "type": "string", "const": "dist/contracts/rule_pack.sig.json" }
+          }
+        }
+      ]
+    },
+    "release_bom_signature_artifact": {
+      "allOf": [
+        { "$ref": "#/$defs/signature_artifact" },
+        {
+          "type": "object",
+          "properties": {
+            "path": { "type": "string", "const": "dist/release_bom.sig.json" }
+          }
+        }
+      ]
+    },
     "contract_versions_artifact": {
       "type": "object",
       "additionalProperties": false,
@@ -87,6 +145,36 @@
         "schema_version": { "type": "integer", "minimum": 1 },
         "signal_logic_version": { "$ref": "#/$defs/signals_version" },
         "rules_count": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "rule_pack_artifact": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "sha256", "schema_version", "signal_logic_version", "pack_hash", "rules_count"],
+      "properties": {
+        "path": {
+          "type": "string",
+          "pattern": "^dist/contracts/rule_pack\\.json$"
+        },
+        "sha256": { "$ref": "#/$defs/sha256" },
+        "schema_version": { "type": "integer", "minimum": 1 },
+        "signal_logic_version": { "$ref": "#/$defs/signals_version" },
+        "pack_hash": { "$ref": "#/$defs/sha256" },
+        "rules_count": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "trusted_signing_keys_artifact": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "sha256", "schema_version", "keys_count"],
+      "properties": {
+        "path": {
+          "type": "string",
+          "pattern": "^dist/contracts/trusted_signing_keys\\.json$"
+        },
+        "sha256": { "$ref": "#/$defs/sha256" },
+        "schema_version": { "type": "integer", "minimum": 1 },
+        "keys_count": { "type": "integer", "minimum": 1 }
       }
     },
     "treesitter_manifest_artifact": {
