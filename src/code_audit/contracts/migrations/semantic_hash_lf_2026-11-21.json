@@ -1,0 +1,51 @@
+{
+  "base_commit": "95bbd445c1a1243b16e030da9e6da74c1b8cae4f",
+  "migration": "semantic_hash_lf_2026-11-21",
+  "reason": "semantic_hash was sha256 over raw bytes, pinned from a CRLF checkout; re-measured over CRLF->LF normalized content. Measurement correction only: no source change, so no history append or rule_logic_version bump.",
+  "rewrites": [
+    "rules_registry.json: semantic_hash",
+    "rule_versions.json: semantic_hash, history[-1]"
+  ],
+  "rules": {
+    "EXC_EMPTY_CATCH_JS_001": {
+      "file_sha256_lf": {
+        "src/code_audit/analyzers/js_ts_security.py": "f1ee824141a68268fa8ec61335e4998440890097519c9104e554cd4da469d897",
+        "src/code_audit/data/treesitter/queries/js_ts_security.scm": "ad995d20686179e8617f85a8b9ea44901e11c7dc19c85883923448e3fcf33732"
+      },
+      "new": "bb93dbf555b08d6a2d05b6bf1c5c2b8165328db8b604cf6c4411a45de33d3a50",
+      "old": "2e0327b0a98eba1686134bd8901c7686be31c771843324cc986bbd2305bb3fb8"
+    },
+    "GST_GLOBAL_THIS_MUTATION_001": {
+      "file_sha256_lf": {
+        "src/code_audit/analyzers/js_ts_security.py": "f1ee824141a68268fa8ec61335e4998440890097519c9104e554cd4da469d897",
+        "src/code_audit/data/treesitter/queries/js_ts_security.scm": "ad995d20686179e8617f85a8b9ea44901e11c7dc19c85883923448e3fcf33732"
+      },
+      "new": "ceadffa2e946348822135f1ad8396e870ac3885a253972291177efbb34f10874",
+      "old": "cf47ef4914878012ce770a575eb31ef18f7d7066c2de8b36970cec839cc31076"
+    },
+    "SEC_DYNAMIC_MODULE_LOAD_JS_001": {
+      "file_sha256_lf": {
+        "src/code_audit/analyzers/js_ts_security.py": "f1ee824141a68268fa8ec61335e4998440890097519c9104e554cd4da469d897",
+        "src/code_audit/data/treesitter/queries/js_ts_security.scm": "ad995d20686179e8617f85a8b9ea44901e11c7dc19c85883923448e3fcf33732"
+      },
+      "new": "dca8f40045c7eda3f74562bccab20d9a7e7030631ee06ab32bcd930abcdc0666",
+      "old": "879937a5be6a82c02e456300f775cb05a94768373136b09af301414155369807"
+    },
+    "SEC_EVAL_JS_001": {
+      "file_sha256_lf": {
+        "src/code_audit/analyzers/js_ts_security.py": "f1ee824141a68268fa8ec61335e4998440890097519c9104e554cd4da469d897",
+        "src/code_audit/data/treesitter/queries/js_ts_security.scm": "ad995d20686179e8617f85a8b9ea44901e11c7dc19c85883923448e3fcf33732"
+      },
+      "new": "c949518aedf1ce332c7ce5c971af40e9ff63c44f38fd8cdbf669b3a4ee338550",
+      "old": "37e5012429892bc32345d9dc3ee600f2d34cb70fb3ca811f0ad6d15db6e98e19"
+    },
+    "SEC_NEW_FUNCTION_JS_001": {
+      "file_sha256_lf": {
+        "src/code_audit/analyzers/js_ts_security.py": "f1ee824141a68268fa8ec61335e4998440890097519c9104e554cd4da469d897",
+        "src/code_audit/data/treesitter/queries/js_ts_security.scm": "ad995d20686179e8617f85a8b9ea44901e11c7dc19c85883923448e3fcf33732"
+      },
+      "new": "c1ab1752a4c761a8d540bd27965b1754d982ba894837868fe5606c97dc687cc7",
+      "old": "276ebdb9d63564f24a0ceb569390e2241c85588fd58ba2480fe83f8094b71aee"
+    }
+  }
+}

@@ -17,8 +17,10 @@ def load_rule_versions() -> dict[str, RuleVersion]:
     """
     Load rule_versions.json shipped with the package (source tree in repo).
     """
-    repo_root = Path(__file__).resolve().parents[2]
-    p = repo_root / "contracts" / "rule_versions.json"
+    # Ships beside this module (src/code_audit/contracts/rule_versions.json).
+    # The previous parents[2] / "contracts" resolved to src/contracts/, which
+    # does not exist, so every governed-rule lookup raised FileNotFoundError.
+    p = Path(__file__).resolve().parent / "rule_versions.json"
     obj = json.loads(p.read_text(encoding="utf-8"))
     rules = obj.get("rules") or {}
     if not isinstance(rules, dict):

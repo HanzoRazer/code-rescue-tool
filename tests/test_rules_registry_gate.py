@@ -108,7 +108,9 @@ def test_rules_registry_semantic_inputs_sorted_unique_and_exist() -> None:
 
 
 def _sha256_file(p: Path) -> str:
-    return hashlib.sha256(p.read_bytes()).hexdigest()
+    # Must match scripts/refresh_rules_registry.py: LF-normalized content, so
+    # the hash is identical on CRLF (Windows) and LF (Linux) checkouts.
+    return hashlib.sha256(p.read_bytes().replace(b"\r\n", b"\n")).hexdigest()
 
 
 def _stable_join_hash(parts: list[str]) -> str:

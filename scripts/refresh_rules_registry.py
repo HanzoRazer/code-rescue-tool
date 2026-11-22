@@ -20,7 +20,10 @@ def _sha256_bytes(b: bytes) -> str:
 
 
 def _sha256_file(p: Path) -> str:
-    return _sha256_bytes(p.read_bytes())
+    # Hash LF-normalized content: a CRLF (Windows) and an LF (Linux) checkout
+    # of the same source must produce the same semantic_hash. Raw bytes made
+    # every hash refreshed on Windows unreproducible on Linux CI.
+    return _sha256_bytes(p.read_bytes().replace(b"\r\n", b"\n"))
 
 
 def _stable_join_hash(parts: list[str]) -> str:
