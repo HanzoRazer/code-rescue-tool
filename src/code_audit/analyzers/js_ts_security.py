@@ -17,9 +17,9 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any, Optional, Protocol
 
-from code_audit.contracts.rules import rule_logic_version, Protocol
+from code_audit.contracts.rules import rule_logic_version
 
 
 # ---------------------------------------------------------------------------
