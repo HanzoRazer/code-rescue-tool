@@ -225,3 +225,17 @@ def test_forward_tolerant_within_supported_version():
 
 def test_bool_score_is_not_a_score():
     assert load_run_result(_v2(confidence_score=True)).confidence_score is None
+
+
+def test_v2_without_integrity_is_unverified():
+    """Upstream requires scan_integrity in v2; a payload without it proves nothing."""
+    result = load_run_result(_v2(vibe_tier="green", confidence_score=95))
+    assert result is not None
+    assert result.scan_integrity is None
+    assert result.is_inconclusive is True
+
+
+def test_v2_integrity_without_assessable_true_is_unverified():
+    data = _v2()
+    data["scan_integrity"] = {"files_scanned": 3}
+    assert load_run_result(data).is_inconclusive is True

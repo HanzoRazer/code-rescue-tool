@@ -96,15 +96,21 @@ class RunResult:
 
     @property
     def is_inconclusive(self) -> bool:
-        """True when the producer could not assess the tree.
+        """True when the producer could not assess the tree, or did not prove it could.
 
         Findings are then partial: absence of a finding is not evidence of
         clean code, but the findings present are still real.
+
+        A v2 result without scan_integrity is unverified (upstream makes the
+        block required in v2, so only a malformed or truncated payload lacks
+        it) and is treated as inconclusive. v1 predates integrity evidence
+        and keeps its tier as-is.
         """
         if self.vibe_tier == "inconclusive":
             return True
-        integrity = self.scan_integrity or {}
-        return integrity.get("assessable") is False
+        if self.scan_integrity is None:
+            return self.schema_version != "run_result_v1"
+        return self.scan_integrity.get("assessable") is not True
 
     def findings_by_rule(self, rule_id: str) -> list[Finding]:
         """Get all findings with a specific rule_id."""

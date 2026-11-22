@@ -79,6 +79,14 @@ def valid_run_result():
                 },
             }
         ],
+        "scan_integrity": {
+            "assessable": True,
+            "files_scanned": 1,
+            "analyzers_total": 1,
+            "analyzers_ok": 1,
+            "degraded": [],
+            "reasons": [],
+        },
     }
 
 
@@ -152,6 +160,12 @@ class TestNegativeCases:
         """Missing 'summary' field should fail."""
         del valid_run_result["summary"]
         with pytest.raises(ValidationError):
+            Draft202012Validator(run_result_schema).validate(valid_run_result)
+
+    def test_rejects_missing_scan_integrity(self, run_result_schema, valid_run_result):
+        """v2 requires scan_integrity: no integrity-free GREEN."""
+        del valid_run_result["scan_integrity"]
+        with pytest.raises(ValidationError, match="scan_integrity"):
             Draft202012Validator(run_result_schema).validate(valid_run_result)
 
     def test_rejects_v1_schema_version(self, run_result_schema, valid_run_result):

@@ -22,7 +22,7 @@ jobs:
           # moment upstream merges a contract change, with no change here.
           # Interim pin = code-analysis-tool PR #38 head (run_result_v2,
           # package 0.2.0). Re-point to tag v0.2.0 once it is cut on main.
-          UPSTREAM_REF: d2f13b85b470fcb5b73d54446dae00c0099ee78b
+          UPSTREAM_REF: 226073b639712022199bf4208d8016083f1a8e1b
           # Default: enabled. Set to 0 to skip rule registry parity temporarily.
           CHECK_RULE_REGISTRY: "1"
         run: python ci/check_upstream_contracts.py
