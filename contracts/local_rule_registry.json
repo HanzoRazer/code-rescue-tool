@@ -1,0 +1,27 @@
+{
+  "schema_version": "local_rule_registry_v1",
+  "owner": "code-rescue-tool",
+  "description": "Rule IDs code-rescue handles that are NOT in the vendored upstream registry (contracts/rule_registry.json, byte-parity with code-analysis-tool). supported_rule_ids: rules code-rescue itself originates (Skylos ingest). pending_upstream: rules upstream analyzers emit but upstream's docs/rule_registry.json does not list yet; tests fail once upstream registers one, so this list can only shrink.",
+  "supported_rule_ids": [
+    "SKY_UNUSED_CLASS_001",
+    "SKY_UNUSED_FUNC_001",
+    "SKY_UNUSED_IMPORT_001",
+    "SKY_UNUSED_PARAM_001",
+    "SKY_UNUSED_VAR_001"
+  ],
+  "pending_upstream": [
+    "EXC-BROAD-001",
+    "EXC-SWALLOW-001",
+    "VUE-COMPOSABLE-001",
+    "VUE-COMPOSE-001",
+    "VUE-COMPOSE-002",
+    "VUE-COUPLE-001",
+    "VUE-COUPLE-002",
+    "VUE-COUPLE-003",
+    "VUE-COUPLE-004",
+    "VUE-EXTRACT-001",
+    "VUE-GOD-001",
+    "VUE-GOD-002",
+    "VUE-GOD-003"
+  ]
+}

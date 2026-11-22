@@ -165,8 +165,19 @@ def cmd_plan(args: argparse.Namespace) -> int:
     # Parse and validate
     run_result = load_run_result(data)
     if run_result is None:
-        print("Error: invalid run_result format", file=sys.stderr)
+        print(
+            "Error: invalid run_result format (expected schema_version "
+            "run_result_v1 or run_result_v2)",
+            file=sys.stderr,
+        )
         return 2
+    if run_result.is_inconclusive:
+        print(
+            "Warning: the analysis was INCONCLUSIVE (scan could not assess the "
+            "tree). The plan covers only the findings that were produced; "
+            "absence of a finding is not evidence of clean code.",
+            file=sys.stderr,
+        )
 
     # Create plan
     plan = create_rescue_plan(run_result)
@@ -196,6 +207,23 @@ def cmd_fix(args: argparse.Namespace) -> int:
 
     plan = json.loads(plan_path.read_text())
     actions = plan.get("actions", [])
+
+    # A plan built from an inconclusive scan rests on partial findings: the
+    # scanner could not assess the whole tree, so "unused"/"dead" is not
+    # established. Planning and dry-run are fine; mutating files is not.
+    if plan.get("source_scan_inconclusive") is True:
+        if args.apply:
+            print(
+                "Error: refusing --apply: this plan was built from an "
+                "INCONCLUSIVE scan (the analyzer could not assess the tree). "
+                "Re-run the analysis until it is assessable, re-plan, then apply.",
+                file=sys.stderr,
+            )
+            return 2
+        print(
+            "Warning: plan was built from an INCONCLUSIVE scan; dry-run only.",
+            file=sys.stderr,
+        )
 
     # Filter by rule if specified
     if args.rule:

@@ -35,7 +35,7 @@ def run_result_schema():
 def valid_run_result():
     """Minimal valid run_result payload."""
     return {
-        "schema_version": "run_result_v1",
+        "schema_version": "run_result_v2",
         "run": {
             "run_id": "test-run-001",
             "created_at": "2026-01-01T00:00:00+00:00",
@@ -79,6 +79,14 @@ def valid_run_result():
                 },
             }
         ],
+        "scan_integrity": {
+            "assessable": True,
+            "files_scanned": 1,
+            "analyzers_total": 1,
+            "analyzers_ok": 1,
+            "degraded": [],
+            "reasons": [],
+        },
     }
 
 
@@ -92,13 +100,14 @@ class TestRunResultSchema:
         """Valid run_result should pass validation."""
         Draft202012Validator(run_result_schema).validate(valid_run_result)
 
-    def test_schema_version_const(self, valid_run_result):
-        """schema_version must be exactly 'run_result_v1'."""
-        assert valid_run_result["schema_version"] == "run_result_v1"
+    def test_schema_version_const(self, run_result_schema, valid_run_result):
+        """The vendored schema pins schema_version to 'run_result_v2'."""
+        assert run_result_schema["properties"]["schema_version"]["const"] == "run_result_v2"
+        assert valid_run_result["schema_version"] == "run_result_v2"
 
     def test_vibe_tier_enum(self, run_result_schema, valid_run_result):
-        """vibe_tier must be green, yellow, or red."""
-        for tier in ["green", "yellow", "red"]:
+        """vibe_tier must be green, yellow, red, or inconclusive (v2)."""
+        for tier in ["green", "yellow", "red", "inconclusive"]:
             valid_run_result["summary"]["vibe_tier"] = tier
             Draft202012Validator(run_result_schema).validate(valid_run_result)
 
@@ -107,6 +116,26 @@ class TestRunResultSchema:
         for score in [0, 50, 100]:
             valid_run_result["summary"]["confidence_score"] = score
             Draft202012Validator(run_result_schema).validate(valid_run_result)
+
+    def test_confidence_score_nullable(self, run_result_schema, valid_run_result):
+        """v2: an inconclusive scan has no score."""
+        valid_run_result["summary"]["vibe_tier"] = "inconclusive"
+        valid_run_result["summary"]["confidence_score"] = None
+        Draft202012Validator(run_result_schema).validate(valid_run_result)
+
+    def test_scan_integrity_block_accepted(self, run_result_schema, valid_run_result):
+        """v2: optional scan_integrity block validates."""
+        valid_run_result["scan_integrity"] = {
+            "assessable": False,
+            "files_scanned": 0,
+            "analyzers_total": 2,
+            "analyzers_ok": 0,
+            "degraded": [
+                {"analyzer_id": "exceptions", "status": "failed", "is_critical": True}
+            ],
+            "reasons": ["no_files_scanned"],
+        }
+        Draft202012Validator(run_result_schema).validate(valid_run_result)
 
     def test_severity_enum(self, run_result_schema, valid_run_result):
         """severity must be info, low, medium, high, or critical."""
@@ -130,6 +159,18 @@ class TestNegativeCases:
     def test_rejects_missing_summary(self, run_result_schema, valid_run_result):
         """Missing 'summary' field should fail."""
         del valid_run_result["summary"]
+        with pytest.raises(ValidationError):
+            Draft202012Validator(run_result_schema).validate(valid_run_result)
+
+    def test_rejects_missing_scan_integrity(self, run_result_schema, valid_run_result):
+        """v2 requires scan_integrity: no integrity-free GREEN."""
+        del valid_run_result["scan_integrity"]
+        with pytest.raises(ValidationError, match="scan_integrity"):
+            Draft202012Validator(run_result_schema).validate(valid_run_result)
+
+    def test_rejects_v1_schema_version(self, run_result_schema, valid_run_result):
+        """The vendored schema is v2-only (the loader still accepts v1 input)."""
+        valid_run_result["schema_version"] = "run_result_v1"
         with pytest.raises(ValidationError):
             Draft202012Validator(run_result_schema).validate(valid_run_result)
 

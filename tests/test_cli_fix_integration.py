@@ -196,3 +196,72 @@ class TestFixRuleFilter:
             "--rule", "GST_MUTABLE_DEFAULT_001",
         ])
         assert r.returncode == 0
+
+
+class TestInconclusiveSourceScan:
+    """A plan built from an inconclusive scan may be planned/dry-run, never applied.
+
+    An incomplete scan cannot support a "safe to remove" claim.
+    """
+
+    @staticmethod
+    def _inconclusive_plan_file(tmp_path: Path) -> Path:
+        plan = _make_plan([_make_mutable_default_action()])
+        plan["source_scan_inconclusive"] = True
+        plan_file = tmp_path / "plan.json"
+        plan_file.write_text(json.dumps(plan))
+        return plan_file
+
+    def test_apply_refused_and_file_untouched(self, tmp_path: Path) -> None:
+        target = tmp_path / "target.py"
+        source = "def foo(items=[]):\n    return items\n"
+        target.write_text(source)
+
+        r = _run_cli(
+            ["fix", str(self._inconclusive_plan_file(tmp_path)), "--root", str(tmp_path), "--apply"]
+        )
+        assert r.returncode == 2
+        assert "INCONCLUSIVE" in r.stderr
+        assert target.read_text() == source
+
+    def test_dry_run_still_allowed(self, tmp_path: Path) -> None:
+        target = tmp_path / "target.py"
+        source = "def foo(items=[]):\n    return items\n"
+        target.write_text(source)
+
+        r = _run_cli(["fix", str(self._inconclusive_plan_file(tmp_path)), "--root", str(tmp_path)])
+        assert r.returncode == 0
+        assert "dry-run only" in r.stderr
+        assert target.read_text() == source
+
+    @pytest.mark.parametrize(
+        ("summary", "integrity", "flagged"),
+        [
+            ({"vibe_tier": "inconclusive", "confidence_score": None}, None, True),
+            ({"vibe_tier": "yellow", "confidence_score": 70}, {"assessable": False}, True),
+            ({"vibe_tier": "yellow", "confidence_score": 70}, {"assessable": True}, False),
+        ],
+    )
+    def test_plan_command_carries_inconclusive_flag(
+        self, tmp_path: Path, summary: dict, integrity: dict | None, flagged: bool
+    ) -> None:
+        run_result = {
+            "schema_version": "run_result_v2",
+            "run": {"run_id": "r-1", "signal_logic_version": "signals_v1"},
+            "summary": summary,
+            "signals_snapshot": [],
+            "findings_raw": [],
+        }
+        if integrity is not None:
+            run_result["scan_integrity"] = integrity
+        rr_file = tmp_path / "rr.json"
+        rr_file.write_text(json.dumps(run_result))
+
+        r = _run_cli(["plan", str(rr_file)])
+        assert r.returncode == 0, r.stderr
+        plan = json.loads(r.stdout)
+        if flagged:
+            assert plan["source_scan_inconclusive"] is True
+            assert "INCONCLUSIVE" in r.stderr
+        else:
+            assert "source_scan_inconclusive" not in plan
