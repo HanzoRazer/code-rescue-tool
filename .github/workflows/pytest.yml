@@ -22,9 +22,9 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
       - name: Install
-        # Only the dev extra: the `analysis` extra installs upstream
-        # code-analysis-tool, which would shadow the vendored src/code_audit.
-        run: python -m pip install -e ".[dev]"
+        # dev + js (tree-sitter for the JS/TS tests). Not `analysis`: it installs
+        # upstream code-analysis-tool, which would shadow the vendored src/code_audit.
+        run: python -m pip install -e ".[dev,js]"
       - name: Run tests
         # No `|| true` / continue-on-error: a failing test must fail the job.
         run: python -m pytest -q
