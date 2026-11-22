@@ -12,7 +12,7 @@ Spaghetti Code Rescue Tools - automated fixes for [code-analysis-tool](https://g
 │                         │         │                         │
 │  Analyzers → Findings   │────────▶│  Rescue Actions         │
 │  Findings → Signals     │  JSON   │  (fix/refactor/remove)  │
-│  (run_result_v1)        │         │                         │
+│  (run_result_v1 / v2)   │         │                         │
 └─────────────────────────┘         └─────────────────────────┘
 ```
 
@@ -100,7 +100,7 @@ Scaffolds require manual review to wire props/events.
 
 ## Schema Compatibility
 
-- Consumes: `run_result_v1` from code-analysis-tool
+- Consumes: `run_result_v1` and `run_result_v2` from code-analysis-tool (v2 adds an `inconclusive` tier, a nullable score and `scan_integrity`; the CLI warns on inconclusive input). Within a supported version the loader ignores unknown fields and passes unknown enum values through; an unknown `schema_version` is rejected.
 - Produces: `rescue_plan_v1`
 
 ## Contract Parity with code-analysis-tool
@@ -144,8 +144,18 @@ registry matches upstream:
 contracts/rule_registry.json
 ```
 
-This ensures that `code-rescue-tool` only claims to handle rules that
-`code-analysis-tool` actually produces.
+This file is a byte-for-byte copy of upstream's `docs/rule_registry.json`;
+never edit it by hand. Rules code-rescue handles that upstream does not list
+live in `contracts/local_rule_registry.json`:
+
+- `supported_rule_ids`: rules code-rescue originates (Skylos ingest, `SKY_*`).
+- `pending_upstream`: rules upstream analyzers emit but upstream's registry
+  does not list yet. `tests/test_rule_registry_contract.py` fails as soon as
+  upstream registers one, so the entry must be removed — the list only shrinks.
+
+The same test enforces referential integrity: every rule ID a fixer, the
+rule→action map, or an ingester binds to must appear in one of the two
+registries, and no two IDs may differ only by `-`/`_` or case.
 
 To temporarily skip rule registry parity (e.g., during upstream development):
 

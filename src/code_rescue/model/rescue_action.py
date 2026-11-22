@@ -82,9 +82,18 @@ RULE_ACTION_MAP: dict[str, tuple[ActionType, SafetyLevel]] = {
     "SEC_PICKLE_LOAD_001": (ActionType.FLAG, SafetyLevel.MANUAL),
     "SEC_YAML_UNSAFE_001": (ActionType.REPLACE, SafetyLevel.SAFE),
 
-    # Exceptions - flag for review
-    "EXC_SWALLOW_001": (ActionType.FLAG, SafetyLevel.MANUAL),
-    "EXC_BROAD_LOGGED_001": (ActionType.FLAG, SafetyLevel.MANUAL),
+    # Exceptions - flag for review.
+    # Keyed to what the supported scanner (scan_project -> ExceptionsAnalyzer)
+    # emits. The underscore forms (EXC_SWALLOW_001, EXC_BROAD_LOGGED_001) come
+    # only from upstream's deprecated build_run_result path and never matched
+    # live output. Mapped by meaning, not by separator:
+    #   EXC-SWALLOW-001: broad catch whose body only discards the error
+    #   EXC-BROAD-001:   any other broad catch (upstream has no "logged"
+    #                    variant; this is the closest superset of
+    #                    the old EXC_BROAD_LOGGED_001)
+    # EXC-BARE-001 is intentionally unmapped (default: FLAG/MANUAL).
+    "EXC-SWALLOW-001": (ActionType.FLAG, SafetyLevel.MANUAL),
+    "EXC-BROAD-001": (ActionType.FLAG, SafetyLevel.MANUAL),
 
     # Vue components - extraction/refactoring
     "VUE-GOD-001": (ActionType.REFACTOR, SafetyLevel.MANUAL),

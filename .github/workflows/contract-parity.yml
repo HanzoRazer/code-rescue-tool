@@ -1,4 +1,4 @@
-you are stalledname: contract-parity
+name: contract-parity
 
 on:
   pull_request:
@@ -18,9 +18,11 @@ jobs:
           python-version: "3.13"
       - name: Check upstream contract parity
         env:
-          # Pin to a branch, tag, or commit SHA without editing code.
-          # Example: v1.0.0, main, fbf34e1
-          UPSTREAM_REF: main
+          # Pinned, never `main`: an unpinned ref turns this check red the
+          # moment upstream merges a contract change, with no change here.
+          # Interim pin = code-analysis-tool PR #38 head (run_result_v2,
+          # package 0.2.0). Re-point to tag v0.2.0 once it is cut on main.
+          UPSTREAM_REF: d2f13b85b470fcb5b73d54446dae00c0099ee78b
           # Default: enabled. Set to 0 to skip rule registry parity temporarily.
           CHECK_RULE_REGISTRY: "1"
         run: python ci/check_upstream_contracts.py

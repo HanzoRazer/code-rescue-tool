@@ -165,8 +165,19 @@ def cmd_plan(args: argparse.Namespace) -> int:
     # Parse and validate
     run_result = load_run_result(data)
     if run_result is None:
-        print("Error: invalid run_result format", file=sys.stderr)
+        print(
+            "Error: invalid run_result format (expected schema_version "
+            "run_result_v1 or run_result_v2)",
+            file=sys.stderr,
+        )
         return 2
+    if run_result.is_inconclusive:
+        print(
+            "Warning: the analysis was INCONCLUSIVE (scan could not assess the "
+            "tree). The plan covers only the findings that were produced; "
+            "absence of a finding is not evidence of clean code.",
+            file=sys.stderr,
+        )
 
     # Create plan
     plan = create_rescue_plan(run_result)

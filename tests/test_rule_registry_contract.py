@@ -2,7 +2,8 @@
 
 Validates that:
 - contracts/rule_registry.json is valid
-- All fixer-supported rules are in the registry
+- Every rule code-rescue binds to is registered (vendored upstream
+  registry or contracts/local_rule_registry.json)
 - Rule IDs follow the naming convention
 """
 
@@ -55,6 +56,36 @@ def _discover_fixer_supported_rules() -> set[str]:
                 instance = obj()
                 rules.update(instance.supported_rules)
     return rules
+
+
+LOCAL_REGISTRY_PATH = CONTRACTS_DIR / "local_rule_registry.json"
+
+
+def _load_local_registry() -> dict:
+    """Load code-rescue's own (non-vendored) rule registry."""
+    return json.loads(LOCAL_REGISTRY_PATH.read_text(encoding="utf-8"))
+
+
+def _registered_rule_ids() -> set[str]:
+    """Upstream (vendored) registry plus local owned and pending IDs."""
+    local = _load_local_registry()
+    return (
+        set(_load_registry()["supported_rule_ids"])
+        | set(local["supported_rule_ids"])
+        | set(local["pending_upstream"])
+    )
+
+
+def _referenced_rule_ids() -> set[str]:
+    """Every rule_id code-rescue binds behavior to."""
+    from code_rescue.ingest.skylos_loader import SKYLOS_RULE_MAP
+    from code_rescue.model.rescue_action import RULE_ACTION_MAP
+
+    return (
+        _discover_fixer_supported_rules()
+        | set(RULE_ACTION_MAP)
+        | set(SKYLOS_RULE_MAP.values())
+    )
 
 
 class TestRuleRegistryStructure:
@@ -113,21 +144,78 @@ class TestRuleRegistryStructure:
 
 
 class TestFixerRegistrySync:
-    """Test that fixers are synced with rule registry."""
+    """Referential integrity: every rule code-rescue acts on must be registered.
+
+    contracts/rule_registry.json is a byte-parity copy of upstream's registry
+    (ci/check_upstream_contracts.py). Rules code-rescue originates, and rules
+    upstream emits but has not registered yet, live in
+    contracts/local_rule_registry.json -- never in the vendored file.
+    """
 
     def test_fixer_rules_in_registry(self) -> None:
-        """All fixer-supported rules must be in the registry."""
-        registry = _load_registry()
-        registry_rules = set(registry["supported_rule_ids"])
-        fixer_rules = _discover_fixer_supported_rules()
-
-        missing = fixer_rules - registry_rules
+        """Every rule a fixer, the action map, or an ingester binds to is registered."""
+        known = _registered_rule_ids()
+        referenced = _referenced_rule_ids()
+        missing = referenced - known
 
         assert not missing, (
-            "Fixer supports rules not in registry:\n"
+            "code-rescue references rules registered nowhere:\n"
             + "\n".join(f"  - {rid}" for rid in sorted(missing))
-            + "\n\nAdd these to contracts/rule_registry.json"
+            + "\n\nIf upstream emits it, add it to pending_upstream in "
+            "contracts/local_rule_registry.json; if code-rescue originates it, "
+            "add it to supported_rule_ids there."
         )
+
+    def test_local_registry_does_not_shadow_upstream(self) -> None:
+        """Local and pending IDs must not duplicate upstream's registry.
+
+        This is the forcing function on pending_upstream: once upstream
+        registers a rule, it must be removed from the local file.
+        """
+        upstream = set(_load_registry()["supported_rule_ids"])
+        local = _load_local_registry()
+        shadowed = (
+            set(local["supported_rule_ids"]) | set(local["pending_upstream"])
+        ) & upstream
+
+        assert not shadowed, (
+            "Upstream now registers these; remove them from "
+            "contracts/local_rule_registry.json:\n"
+            + "\n".join(f"  - {rid}" for rid in sorted(shadowed))
+        )
+
+    def test_local_registry_lists_are_disjoint_sorted_and_well_formed(self) -> None:
+        local = _load_local_registry()
+        assert local.get("schema_version") == "local_rule_registry_v1"
+        own, pending = local["supported_rule_ids"], local["pending_upstream"]
+        for name, ids in (("supported_rule_ids", own), ("pending_upstream", pending)):
+            assert ids == sorted(set(ids)), f"{name} must be sorted and unique"
+            bad = [rid for rid in ids if not RULE_ID_PATTERN.match(rid)]
+            assert not bad, f"{name} has malformed IDs: {bad}"
+        assert not set(own) & set(pending), "an ID cannot be both owned and pending"
+
+    def test_no_separator_collisions(self) -> None:
+        """No two known IDs may differ only by '-' vs '_' or case.
+
+        Upstream emits both EXC-SWALLOW-001 (supported scanner) and
+        EXC_SWALLOW_001 (deprecated path); binding to the wrong spelling
+        silently disables a rule.
+        """
+        seen: dict[str, str] = {}
+        collisions = []
+        for rid in sorted(_registered_rule_ids() | _referenced_rule_ids()):
+            key = rid.replace("-", "_").upper()
+            if key in seen and seen[key] != rid:
+                collisions.append((seen[key], rid))
+            seen.setdefault(key, rid)
+        assert not collisions, f"Separator/case collisions: {collisions}"
+
+    def test_local_entries_are_referenced(self) -> None:
+        """No dead entries: every local/pending ID is used by code-rescue."""
+        local = _load_local_registry()
+        listed = set(local["supported_rule_ids"]) | set(local["pending_upstream"])
+        unused = listed - _referenced_rule_ids()
+        assert not unused, f"Unreferenced local registry entries: {sorted(unused)}"
 
     def test_registry_rules_have_prefix_categories(self) -> None:
         """Registry should have rules from expected categories."""
