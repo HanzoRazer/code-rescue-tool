@@ -33,16 +33,26 @@ class RescuePlan:
     source_signal_logic_version: str = ""
     actions: list[RescueAction] = field(default_factory=list)
     summary: dict[str, Any] = field(default_factory=dict)
+    # The source scan could not assess the tree (run_result_v2 inconclusive).
+    # Its findings are partial, so `fix --apply` must refuse this plan.
+    source_scan_inconclusive: bool = False
 
     def to_dict(self) -> dict[str, Any]:
-        """Convert to JSON-serializable dict."""
-        return {
+        """Convert to JSON-serializable dict.
+
+        source_scan_inconclusive is emitted only when true, so plans from
+        assessable (or v1) scans are unchanged.
+        """
+        out: dict[str, Any] = {
             "schema_version": self.schema_version,
             "source_run_id": self.source_run_id,
             "source_signal_logic_version": self.source_signal_logic_version,
             "actions": [a.to_dict() for a in self.actions],
             "summary": self.summary,
         }
+        if self.source_scan_inconclusive:
+            out["source_scan_inconclusive"] = True
+        return out
 
 
 def _finding_priority(finding: Finding) -> tuple[int, int, str, int]:
@@ -131,4 +141,5 @@ def create_rescue_plan(run_result: RunResult) -> RescuePlan:
         source_signal_logic_version=run_result.run.signal_logic_version,
         actions=actions,
         summary=summary,
+        source_scan_inconclusive=run_result.is_inconclusive,
     )
