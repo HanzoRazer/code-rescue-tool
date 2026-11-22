@@ -8,7 +8,7 @@
         "ts"
       ],
       "rule_id": "EXC_EMPTY_CATCH_JS_001",
-      "semantic_hash": "bb93dbf555b08d6a2d05b6bf1c5c2b8165328db8b604cf6c4411a45de33d3a50",
+      "semantic_hash": "32996bf09d0ce33b49f87e3cf6647197115b6a65bd1330dab55eb67543d31304",
       "semantic_inputs": [
         "src/code_audit/analyzers/js_ts_security.py",
         "src/code_audit/data/treesitter/queries/js_ts_security.scm"
@@ -22,7 +22,7 @@
         "ts"
       ],
       "rule_id": "GST_GLOBAL_THIS_MUTATION_001",
-      "semantic_hash": "ceadffa2e946348822135f1ad8396e870ac3885a253972291177efbb34f10874",
+      "semantic_hash": "9e84258b386ce88194f8a0ca90b93106b9cef3e8d74f09490fb209ec27120af0",
       "semantic_inputs": [
         "src/code_audit/analyzers/js_ts_security.py",
         "src/code_audit/data/treesitter/queries/js_ts_security.scm"
@@ -36,7 +36,7 @@
         "ts"
       ],
       "rule_id": "SEC_DYNAMIC_MODULE_LOAD_JS_001",
-      "semantic_hash": "dca8f40045c7eda3f74562bccab20d9a7e7030631ee06ab32bcd930abcdc0666",
+      "semantic_hash": "d0eff7388a1324e725d7d53341cbea3ecdcad18e929442a0fcb847ba25352ec4",
       "semantic_inputs": [
         "src/code_audit/analyzers/js_ts_security.py",
         "src/code_audit/data/treesitter/queries/js_ts_security.scm"
@@ -50,7 +50,7 @@
         "ts"
       ],
       "rule_id": "SEC_EVAL_JS_001",
-      "semantic_hash": "c949518aedf1ce332c7ce5c971af40e9ff63c44f38fd8cdbf669b3a4ee338550",
+      "semantic_hash": "2df1e02ca7e81ddbb94cc8fe7f518dd2586c48b9925b8e5085066da5be513e2f",
       "semantic_inputs": [
         "src/code_audit/analyzers/js_ts_security.py",
         "src/code_audit/data/treesitter/queries/js_ts_security.scm"
@@ -64,7 +64,7 @@
         "ts"
       ],
       "rule_id": "SEC_NEW_FUNCTION_JS_001",
-      "semantic_hash": "c1ab1752a4c761a8d540bd27965b1754d982ba894837868fe5606c97dc687cc7",
+      "semantic_hash": "afbbb3674b56919f4fc5f0d6542971848e0d71d7d33ea352d938c67f3daedf89",
       "semantic_inputs": [
         "src/code_audit/analyzers/js_ts_security.py",
         "src/code_audit/data/treesitter/queries/js_ts_security.scm"
